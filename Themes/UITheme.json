@@ -1,0 +1,60 @@
+{
+    "light": {
+        "background": {
+            "primary": "#F5F3F7",
+            "secondary": "#E6E0E9",
+            "tertiary": "#D1C4E9"
+        },
+        "foreground": {
+            "primary": "#4A148C",
+            "secondary": "#6A1B9A",
+            "accent": "#9C27B0"
+        },
+        "text": {
+            "primary": "#2C2C2C",
+            "secondary": "#4A4A4A",
+            "hint": "#6A6A6A",
+            "inverse": "#FFFFFF"
+        },
+        "interactive": {
+            "hover": "#7E57C2",
+            "selected": "#6A1B9A",
+            "active": "#4A148C"
+        },
+        "utility": {
+            "success": "#4CAF50",
+            "warning": "#FF9800",
+            "error": "#F44336",
+            "info": "#2196F3"
+        }
+    },
+    "dark": {
+        "background": {
+            "primary": "#121212",
+            "secondary": "#1E1E1E",
+            "tertiary": "#2C2C2C"
+        },
+        "foreground": {
+            "primary": "#BB86FC",
+            "secondary": "#9C27B0",
+            "accent": "#6A1B9A"
+        },
+        "text": {
+            "primary": "#FFFFFF",
+            "secondary": "#B0B0B0",
+            "hint": "#808080",
+            "inverse": "#2C2C2C"
+        },
+        "interactive": {
+            "hover": "#9C27B0",
+            "selected": "#BB86FC",
+            "active": "#6A1B9A"
+        },
+        "utility": {
+            "success": "#4CAF50",
+            "warning": "#FF9800",
+            "error": "#F44336",
+            "info": "#2196F3"
+        }
+    }
+}

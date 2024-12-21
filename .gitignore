@@ -1,0 +1,12 @@
+__pycache__
+.vscode
+build
+dist
+WindowsShare
+Elysium.spec
+file_explorer_unittest.py
+fix.py
+launch.json
+test.md
+theming.py
+ui.py

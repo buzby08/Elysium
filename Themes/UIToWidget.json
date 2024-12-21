@@ -1,0 +1,96 @@
+{
+    "background": {
+        "primary": [
+            ["CTk", "fg_color"],
+            ["CTkToplevel", "fg_color"],
+            ["CTkFrame", "fg_color"]
+        ],
+        "secondary": [
+            ["CTkFrame", "top_fg_color"],
+            ["CTkFrame", "border_color"],
+            ["CTkScrollableFrame", "label_fg_color"]
+        ],
+        "tertiary": [
+            ["CTkLabel", "fg_color"],
+            ["CTkEntry", "fg_color"]
+        ]
+    },
+    "foreground": {
+        "primary": [
+            ["CTkButton", "fg_color"],
+            ["CTkLabel", "text_color"],
+            ["CTkOptionMenu", "fg_color"],
+            ["CTkSwitch", "progress_color"]
+        ],
+        "secondary": [
+            ["CTkButton", "hover_color"],
+            ["CTkSlider", "progress_color"],
+            ["CTkComboBox", "border_color"]
+        ],
+        "accent": [
+            ["CTkCheckBox", "fg_color"],
+            ["CTkRadioButton", "fg_color"],
+            ["CTkProgressBar", "progress_color"]
+        ]
+    },
+    "text": {
+        "primary": [
+            ["CTkButton", "text_color"],
+            ["CTkTextbox", "text_color"]
+        ],
+        "secondary": [
+            ["CTkEntry", "text_color"],
+            ["CTkSlider", "button_color"],
+            ["CTkProgressBar", "fg_color"]
+        ],
+        "hint": [
+            ["CTkEntry", "placeholder_text_color"],
+            ["CTkCheckBox", "text_color_disabled"],
+            ["CTkOptionMenu", "text_color_disabled"]
+        ],
+        "inverse": [
+            ["CTkButton", "text_color"],
+            ["CTkLabel", "text_color"],
+            ["CTkSlider", "button_hover_color"]
+        ]
+    },
+    "interactive": {
+        "hover": [
+            ["CTkButton", "hover_color"],
+            ["CTkCheckBox", "hover_color"],
+            ["CTkScrollbar", "button_hover_color"]
+        ],
+        "selected": [
+            ["CTkSegmentedButton", "selected_color"],
+            ["CTkRadioButton", "border_color"],
+            ["CTkOptionMenu", "fg_color"]
+        ],
+        "active": [
+            ["CTkSwitch", "progress_color"],
+            ["CTkSlider", "progress_color"],
+            ["CTkTextbox", "scrollbar_button_hover_color"]
+        ]
+    },
+    "utility": {
+        "success": [
+            ["CTkSwitch", "progress_color"],
+            ["CTkSlider", "progress_color"],
+            ["CTkRadioButton", "hover_color"]
+        ],
+        "warning": [
+            ["CTkCheckBox", "hover_color"],
+            ["CTkButton", "hover_color"],
+            ["CTkSlider", "button_hover_color"]
+        ],
+        "error": [
+            ["CTkFrame", "border_color"],
+            ["CTkScrollbar", "button_hover_color"],
+            ["CTkSegmentedButton", "unselected_hover_color"]
+        ],
+        "info": [
+            ["CTkProgressBar", "progress_color"],
+            ["CTkSlider", "fg_color"],
+            ["CTkTextbox", "scrollbar_button_color"]
+        ]
+    }
+}
