@@ -3,15 +3,12 @@ import argparse
 import ctypes
 import json
 import os
-from pathlib import Path
-import platform
-from pprint import pprint
 import subprocess
 import threading
 from typing import Any, Callable
 import sys
 
-import customtkinter as ctk
+import customtkinter as ctk #type: ignore
 
 import files
 import gui
@@ -110,11 +107,12 @@ def get_settings(file_path: str) -> settings.Settings:
 def fetch_metadata(
     app: gui.App,
     file_path: str,
-    callback: Callable[[gui.App, dict[str, str]], Any]
+    callback: Callable[[gui.App, dict[str, str | files.datetime | None]], Any]
 ) -> None:
     def worker():
-        metadata = files.windows_metadata.WindowsAttributes(Path(file_path))
-        metadata_dict: dict[str, str] = metadata.get_attribute_dict()
+        metadata_dict: dict[str, str | files.datetime | None] = (
+            files.get_file_metadata(file_path)
+        )
         callback(app, metadata_dict)
 
     thread = threading.Thread(target=worker)
@@ -122,16 +120,16 @@ def fetch_metadata(
 
 
 def display_details(button: gui.Button, app: gui.App) -> None:
-    file_path: str = str(button.cget("text"))
+    file_path: str = str(button.cget("text")) #type: ignore
 
     previously_selected: gui.Button | None = app.extra_details.get("selected")
     item_exists: bool = gui.widget_exists(previously_selected)
     if previously_selected and item_exists:
-        previously_selected.configure(border_color="gray")
+        previously_selected.configure(border_color="gray") #type: ignore
     
     if previously_selected is not button:
-        hover_color = button.cget("hover_color")
-        button.configure(border_color=hover_color)
+        hover_color = button.cget("hover_color") #type: ignore
+        button.configure(border_color=hover_color) #type: ignore
 
         app.extra_details["selected"] = button
 
@@ -143,7 +141,7 @@ def display_details(button: gui.Button, app: gui.App) -> None:
 
 
 def open_folder(button: gui.Button, app: gui.App) -> None:
-    file_path: str = str(button.cget("text"))
+    file_path: str = str(button.cget("text")) #type: ignore
     full_file_path: str = os.path.join(app.file_path, file_path)
 
     app.file_path = full_file_path
@@ -151,11 +149,10 @@ def open_folder(button: gui.Button, app: gui.App) -> None:
 
 
 def open_file(button: gui.Button, app: gui.App) -> None:
-    system: str = platform.system().lower()
-    windows: bool = system == "windows"
-    macos: bool = system == "darwin"
+    windows: bool = settings.platform() == "windows"
+    macos: bool = settings.platform() == "darwin"
 
-    button_file: str = str(button.cget("text"))
+    button_file: str = str(button.cget("text")) #type: ignore
     file_path: str = os.path.join(app.file_path, button_file)
 
     if windows:
@@ -185,7 +182,7 @@ def get_files_elevated_permissions(app: gui.App) -> None:
         app.main_section.warning_lbl.pack(fill=ctk.X, side=ctk.TOP)
 
 
-def populate_files(app: gui.App) -> None:   
+def populate_files(app: gui.App, refresh: bool = False) -> None:   
     app.main_section.scroll_to_top()
     file_path: str = app.file_path
 
@@ -198,7 +195,7 @@ def populate_files(app: gui.App) -> None:
     files_list: list[str]
     folders: list[str]
 
-    if file_path in app.extra_details["directories"]:
+    if file_path in app.extra_details["directories"] and not refresh:
         files_list = app.extra_details["directories"][file_path]["files"]
         folders = (
             app.extra_details["directories"][file_path]["folders"]
@@ -276,18 +273,18 @@ def open_share_menu(file_path: str) -> None:
     subprocess.run(["explorer", "/select,", file_path], shell=True)
 
 
-def _update_details_bar(app: gui.App, metadata_dict: dict[str, str]) -> None:
-    attributes: str | None = metadata_dict.get("Attributes", None)
-    owner: str | None = metadata_dict.get("Owner", None)
-    item_type: str | None = metadata_dict.get("File extension", None)
-    modified_date: str | None = metadata_dict.get("Date modified")
-    size: str | None = metadata_dict.get("Size", None)
+def _update_details_bar(
+    app: gui.App,
+    metadata_dict: dict[str, str | files.datetime | None]
+) -> None:
+    owner: str | files.datetime | None = metadata_dict.get("Owner")
+    item_type: str | files.datetime | None = metadata_dict.get("Item")
+    modified_date: str | files.datetime | None = metadata_dict.get("Last Modified")
+    size: str | files.datetime | None = metadata_dict.get("File Size")
 
-    if owner:
-        owner = owner.split("\\")[-1].strip()
-
+    if isinstance(modified_date, files.datetime):
+        modified_date = modified_date.strftime("%d-%m-%Y %H:%M:%S")
     for attr_name, attr_val in (
-        ("Attributes", attributes),
         ("Owner", owner),
         ("Item", item_type),
         ("Last modified", modified_date),
@@ -311,7 +308,7 @@ def _update_details_bar(app: gui.App, metadata_dict: dict[str, str]) -> None:
 
 
 def main() -> None:
-    parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.0.1")
+    parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.1.1")
 
     app: gui.App = setup_app(parser)
     app.app_name = "Elysium"
@@ -418,7 +415,7 @@ def main() -> None:
     app.title_bar.add_button(gui.Button(
         "settings_btn",
         app.title_bar,
-        single_click=display_settings,
+        single_click=lambda button, event: display_settings(event),
         color="transparent",
         image=app.images["settings"],
         text="",
@@ -429,7 +426,7 @@ def main() -> None:
     app.title_bar.add_button(gui.Button(
         "new_file_btn",
         app.title_bar,
-        single_click=new_file,
+        single_click=lambda button, event: new_file(event),
         color="transparent",
         image=app.images["new_file"],
         text="",
@@ -474,7 +471,7 @@ def main() -> None:
 
 
     app.root.bind("<BackSpace>", lambda x: back_directory(app))
-
+    app.root.bind("<Control-r>", lambda x: populate_files(app, refresh=True))
     
     populate_files(app)
 

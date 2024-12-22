@@ -1,13 +1,14 @@
 from __future__ import annotations
 import os
-import platform
 import re
 import tkinter as tk
-from typing import Any, Callable, NoReturn, Union
+from typing import Any, Callable
 from PIL import Image
 
 from PIL.ImageFile import ImageFile
-import customtkinter as ctk
+import customtkinter as ctk #type: ignore
+
+import settings
 
 
 
@@ -21,7 +22,7 @@ class Frame(ctk.CTkFrame):
         kwargs["master"] = master
         self._widgets: list[ctk.CTkBaseClass] = []
         self.__name__: str = widget_name
-        super().__init__(**kwargs)
+        super().__init__(**kwargs) #type: ignore
 
     def add_frame(
         self,
@@ -86,7 +87,7 @@ class ScrollableFrame(ctk.CTkScrollableFrame):
         self._widgets: list[ctk.CTkBaseClass] = []
 
         self.__name__: str = widget_name
-        super().__init__(**kwargs)
+        super().__init__(**kwargs) #type: ignore
 
     def add_frame(
         self,
@@ -158,7 +159,7 @@ class Button(ctk.CTkButton):
     ) -> None:
         kwargs["master"] = master
         kwargs["fg_color"] = color
-        super().__init__(**kwargs)
+        super().__init__(**kwargs) #type: ignore
 
 
         self.widget_name: str = widget_name
@@ -170,8 +171,8 @@ class Button(ctk.CTkButton):
             double_click
         )
 
-        self.bind("<Button-1>", self._single_click)
-        self.bind("<Double-1>", self._double_click)
+        self.bind("<Button-1>", self._single_click) #type: ignore
+        self.bind("<Double-1>", self._double_click) #type: ignore
     
 
     def _single_click(self, event: tk.Event[Any]) -> None:
@@ -215,7 +216,11 @@ class App:
         self._y_coord: int = 100
         self._fullscreen: bool = False
         self._file_path: str = ""
-        self._widgets: list[ctk.CTkBaseClass] = []
+        self._widgets: list[
+            ctk.CTkBaseClass 
+            | ctk.CTkFrame 
+            | ctk.CTkScrollableFrame
+        ] = []
         self._display_fp_widget: ctk.CTkLabel | None = None
         self._root_dir: str = ""
         self._images: dict[str, ctk.CTkImage] = {}
@@ -231,7 +236,7 @@ class App:
 
     def run(self) -> None:
         """Runs the app mainloop."""
-        self.root.mainloop()
+        self.root.mainloop() #type: ignore
 
     def add_frame(
         self,
@@ -304,7 +309,7 @@ class App:
         if dark_image_file_path:
             dark_image = Image.open(dark_image_file_path)
 
-        self._images[name] = ctk.CTkImage(light_image, dark_image, size)
+        self._images[name] = ctk.CTkImage(light_image, dark_image, size) #type: ignore
 
     def _exit_fullscreen(self) -> None:
         """Immediately exits fullscreen of the application."""
@@ -321,7 +326,7 @@ class App:
 
         geom: tuple[int, int, int, int] = self.geometry
 
-        self.root.attributes('-fullscreen', state)
+        self.root.attributes('-fullscreen', state) #type: ignore
         self.root.state(state_name)
 
         self.geometry = {
@@ -341,7 +346,7 @@ class App:
         if isinstance(value, list):
             value = os.path.join(*value)
         
-        if platform.system().lower() == "windows":
+        if settings.platform() == "windows":
             value = re.sub(r"(?<=:)(?!\\)", r"\\", value)
 
         if not os.path.isdir(value) and value != '':
@@ -356,7 +361,7 @@ class App:
             self._file_path = os.path.realpath(value)
             
         if self._display_fp_widget is not None:
-            self._display_fp_widget.configure(text=value)
+            self._display_fp_widget.configure(text=value) #type: ignore
 
 
     @property
@@ -397,7 +402,11 @@ class App:
         return (self._x_coord, self._y_coord)
     
     @property
-    def widgets(self) -> list[ctk.CTkBaseClass]:
+    def widgets(self) -> list[
+        ctk.CTkBaseClass
+        | ctk.CTkFrame
+        | ctk.CTkScrollableFrame
+    ]:
         return self._widgets
     
     @property
@@ -449,8 +458,8 @@ class App:
 
 
 
-def widget_exists(widget: ctk.CTkBaseClass) -> bool:
+def widget_exists(widget: ctk.CTkBaseClass | None) -> bool:
     try:
-        return widget.winfo_exists()
+        return widget.winfo_exists() if widget else False
     except Exception:
         return False
