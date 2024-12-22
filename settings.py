@@ -1,6 +1,6 @@
-import json
+from functools import cache
 import os
-import platform
+import platform as pform
 import re
 from typing import Any
 
@@ -165,7 +165,7 @@ class Settings:
         if isinstance(value, list):
             value = os.path.join(*value)
         
-        if platform.system().lower() == "windows":
+        if platform() == "windows":
             value = re.sub(r"(?<=:)(?!\\)", r"\\", value)
         
         if not os.path.isdir(value):
@@ -203,12 +203,8 @@ class Settings:
         return result
 
 
-if __name__ == "__main__":
-    settings = Settings()
-    
-    with open("Settings\\userSettings.json", "r") as f:
-        settings.parse_settings(json.load(f))
-    
-    print(settings)
-    print()
-    print(settings.global_ai_rules.global_folders)
+
+@cache
+def platform() -> str:
+    """Returns the lowercase platform name for the system"""
+    return pform.system().lower()
