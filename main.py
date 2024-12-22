@@ -312,7 +312,7 @@ def main() -> None:
 
     app: gui.App = setup_app(parser)
     app.app_name = "Elysium"
-    app.root_dir = "E:\\file explorer"
+    app.root_dir = "_internal"
 
     user_settings: settings.Settings = get_settings(os.path.join(app.root_dir, "Settings", "userSettings.json"))
 
