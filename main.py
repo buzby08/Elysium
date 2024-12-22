@@ -114,10 +114,7 @@ def fetch_metadata(
 ) -> None:
     def worker():
         metadata = files.windows_metadata.WindowsAttributes(Path(file_path))
-        pprint(metadata)
         metadata_dict: dict[str, str] = metadata.get_attribute_dict()
-        print("\n\nmetadata_dict")
-        pprint(metadata_dict)
         callback(app, metadata_dict)
 
     thread = threading.Thread(target=worker)
