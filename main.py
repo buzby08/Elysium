@@ -3,6 +3,7 @@ import argparse
 import ctypes
 import json
 import os
+from PIL import Image, ImageTk
 import subprocess
 import threading
 from typing import Any, Callable
@@ -50,13 +51,13 @@ efficiency without compromising flexibility.
         "-w", 
         "--width", 
         help="Sets the width of the window",
-        default=1000
+        default=1500
     )
     parser.add_argument(
         "-t", 
         "--height", 
         help="Sets the height of the window",
-        default=500
+        default=750
     )
     parser.add_argument(
         "-x", 
@@ -243,15 +244,17 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
 def back_directory(app: gui.App) -> None:
     red = "\u001b[31m"
     norm = "\u001b[0m"
-    file_path: list[str] = app.file_path.split('\\')
+    file_path: list[str] = app.file_path.split('/') if app.file_path != '/' else ['/']
     print(f"{red}current_file_path: {repr(str(file_path))}{norm}")
     while '' in file_path:
         file_path.remove('')
 
     if len(file_path) != 1:
-        new_fp: str = '\\'.join(file_path[:-1])
-    else:
+        new_fp: str = '/'.join(file_path[:-1])
+    elif file_path == ['/']:
         new_fp: str = ""
+    else:
+        new_fp: str = "/"
     app.file_path = new_fp
     print(f"{red}new_file_path: {repr(str(new_fp))}{norm}")
     print(f"{red}app file path: {repr(app.file_path)}{norm}")
@@ -312,7 +315,7 @@ def main() -> None:
 
     app: gui.App = setup_app(parser)
     app.app_name = "Elysium"
-    app.root_dir = "_internal"
+    app.root_dir = "/home/busby08/Downloads/Elysium-main"
 
     user_settings: settings.Settings = get_settings(os.path.join(app.root_dir, "Settings", "userSettings.json"))
 
@@ -321,38 +324,39 @@ def main() -> None:
     ctk.set_default_color_theme(user_settings.color_theme)
     ctk.set_appearance_mode(user_settings.color_mode)
 
-
-    app.root.iconbitmap(f"{app.root_dir}\\Images\\ElysiumLogo.ico") # type: ignore
+    path: str = f"{app.root_dir}/Images/ElysiumLogo.png"
+    print(f"{repr(path)} exists: {os.path.isfile(path)}")
+    app.root.iconphoto(True, gui.tk.PhotoImage(file=path))
 
     if parser.directory is not None and os.path.isdir(parser.directory):
         app.file_path = parser.directory
 
     app.add_image(
         "logo",
-        f"{app.root_dir}\\Images\\ElysiumLogo.png",
+        f"{app.root_dir}/Images/ElysiumLogo.png",
         size=(45, 45)
     )
     app.add_image(
         "new_file",
-        f"{app.root_dir}\\Images\\light\\new_file.png",
-        f"{app.root_dir}\\Images\\dark\\new_file.png",
+        f"{app.root_dir}/Images/light/new_file.png",
+        f"{app.root_dir}/Images/dark/new_file.png",
         size=(25, 25)
     )
     app.add_image(
         "settings",
-        f"{app.root_dir}\\Images\\light\\settings.png",
-        f"{app.root_dir}\\Images\\dark\\settings.png",
+        f"{app.root_dir}/Images/light/settings.png",
+        f"{app.root_dir}/Images/dark/settings.png",
         size=(25, 25)
     )
     app.add_image(
         "file",
-        f"{app.root_dir}\\Images\\light\\file.png",
-        f"{app.root_dir}\\Images\\dark\\file.png"
+        f"{app.root_dir}/Images/light/file.png",
+        f"{app.root_dir}/Images/dark/file.png"
     )
     app.add_image(
         "folder",
-        f"{app.root_dir}\\Images\\light\\folder.png",
-        f"{app.root_dir}\\Images\\dark\\folder.png"
+        f"{app.root_dir}/Images/light/folder.png",
+        f"{app.root_dir}/Images/dark/folder.png"
     )
 
     app.extra_details["directories"] = {

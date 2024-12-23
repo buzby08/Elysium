@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import cache
 import os
+from pprint import pprint
 from typing import Any, Union
 import psutil
 
@@ -14,6 +15,7 @@ else:
 
 def get_drives() -> list[str]:
     """Returns the path of all drives mounted on the current system."""
+    print("got drives")
     return [x.mountpoint for x in psutil.disk_partitions(all=True)]
 
 
@@ -58,7 +60,9 @@ def get_files_folders(file_path: str) -> tuple[list[str], list[str]]:
             containing all folders, and one containing all files. This
             is in the format (FILES, FOLDERS).
     """
-    items: list[str] = os.listdir(file_path)
+    items: list[str] = get_drives() if file_path == '' else os.listdir(file_path)
+    
+    pprint(items)
 
     files: list[str] = []
     folders: list[str] = []

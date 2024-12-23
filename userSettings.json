@@ -1,0 +1,24 @@
+{
+    "colorMode": "dark",
+    "colorTheme": ["Themes", "widgetTheme.json"],
+    "startDirectory": ["/home"],
+    "recentFiles": [
+    ],
+    "fileAssociation": {
+        "txt": "notepad.exe"
+    },
+    "globalAIRules": {
+            "fileExtensions": {
+                "txt": ["documents"],
+                "csv": ["data"]
+            },
+            "globalFolders": [
+            ],
+            "sortOnClose": true
+    },
+    "localAIRules": {
+        "fileExtensions": [
+            
+        ]
+    }
+}
