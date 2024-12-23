@@ -348,18 +348,20 @@ class App:
         
         if settings.platform() == "windows":
             value = re.sub(r"(?<=:)(?!\\)", r"\\", value)
+        elif not value.startswith('/') and value not in ['', '/']:
+            value = '/' + value
 
         if not os.path.isdir(value) and value != '':
             raise NotADirectoryError(f"file_path expects a directory! {value} does not match!")
 
-        if not value.endswith('\\'):
-            value = value + '\\'
+        if not value.endswith('/') and value not in ['/', '']:
+            value = value + '/'
 
-        if value == '\\':
-            self._file_path = ''
+        if value == '/' or value == '':
+            self._file_path = value
         else:
             self._file_path = os.path.realpath(value)
-            
+        
         if self._display_fp_widget is not None:
             self._display_fp_widget.configure(text=value) #type: ignore
 
