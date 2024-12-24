@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import cache
 import os
+import re
 from typing import Any, Union
 import psutil
 
@@ -131,6 +132,40 @@ def format_size(size: int | float) -> str:
             return f"{size:.2f} {unit}"
         size /= 1024
     return f"{size:.2f} {units[-1]}"
+
+
+def valid_dir(path: str) -> bool:
+    if not os.path.isdir(path) and path != '':
+        return False
+    
+    return True
+    
+    
+def fix_path(path: str) -> str:
+    is_windows: bool = settings.platform() == "windows"
+
+    if is_windows:
+        path = str(re.sub(r"(?<=:)(?!\\)", r"\\", path))
+    elif not path.startswith('/') and path not in ['', '/']:
+        path = '/' + path
+
+
+    if not valid_dir(path):
+        raise NotADirectoryError(f"fic_path expects a directory! {path} does not match!")
+
+    if is_windows and not path.endswith('\\') and path != '':
+        path += '\\'
+    if (
+        not is_windows
+        and not path.endswith('/')
+        and path not in ['/', '']
+    ):
+        path = path + '/'
+
+    if path not in ('', '/', '\\'):
+        path = os.path.realpath(path)
+
+    return path
 
 
 def _get_windows_owner(file_path: str) -> str:

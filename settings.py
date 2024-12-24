@@ -1,8 +1,9 @@
 from functools import cache
 import os
 import platform as pform
-import re
 from typing import Any
+
+import files
 
 
 class File_Association:
@@ -102,8 +103,8 @@ class Settings:
         self.__name__: str = "Settings"
 
         self._color_mode: str = "dark"
-        self._color_theme: str = os.path.join("E:\\", "file explorer", "Themes", "widgetTheme.json")
-        self._start_directory: str = os.path.join("C:\\", "Users")
+        self._color_theme: str = os.path.join("Themes", "widgetTheme.json")
+        self._start_directory: str = ""
         self._recent_files: list[str] = []
         self.file_association: File_Association = File_Association()
         self.global_ai_rules: AI_Rules = AI_Rules()
@@ -164,14 +165,11 @@ class Settings:
     def start_directory(self, value: str | list[str]) -> None:
         if isinstance(value, list):
             value = os.path.join(*value)
-        
-        if platform() == "windows":
-            value = re.sub(r"(?<=:)(?!\\)", r"\\", value)
-        
-        if not os.path.isdir(value):
-            raise NotADirectoryError(f"{value} is not a directory!")
 
-        self._start_directory = value
+        if not files.valid_dir(value):
+            raise NotADirectoryError(f"start_directory expects a directory! {value} does not match!")
+
+        self._start_directory = files.fix_path(value)
 
     @property
     def recent_files(self) -> list[str]:
