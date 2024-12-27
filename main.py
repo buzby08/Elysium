@@ -11,8 +11,10 @@ import sys
 import customtkinter as ctk #type: ignore
 
 import files
+from files import Path
 import gui
 import settings
+import utils
 
 
 
@@ -95,7 +97,7 @@ def setup_app(parser: argparse.Namespace) -> gui.App:
     return app
 
 
-def get_settings(file_path: str) -> settings.Settings:
+def get_settings(file_path: Path) -> settings.Settings:
     sett: settings.Settings = settings.Settings()
     
     with open(file_path, "r") as f:
@@ -107,11 +109,11 @@ def get_settings(file_path: str) -> settings.Settings:
 def fetch_metadata(
     app: gui.App,
     file_path: str,
-    callback: Callable[[gui.App, dict[str, str | files.datetime | None]], Any]
+    callback: Callable[[gui.App, dict[str, str | Path | files.datetime | None]], Any]
 ) -> None:
     def worker():
-        metadata_dict: dict[str, str | files.datetime | None] = (
-            files.get_file_metadata(file_path)
+        metadata_dict: dict[str, str | Path| files.datetime | None] = (
+            files.get_file_metadata(Path(file_path))
         )
         callback(app, metadata_dict)
 
@@ -141,19 +143,20 @@ def display_details(button: gui.Button, app: gui.App) -> None:
 
 
 def open_folder(button: gui.Button, app: gui.App) -> None:
-    file_path: str = str(button.cget("text")) #type: ignore
-    full_file_path: str = os.path.join(app.file_path, file_path)
+    file_path: Path = Path(button.cget("text")) #type: ignore
+    full_file_path: Path = app.file_path + file_path
+    
 
     app.file_path = full_file_path
     populate_files(app)
 
 
 def open_file(button: gui.Button, app: gui.App) -> None:
-    windows: bool = settings.platform() == "windows"
-    macos: bool = settings.platform() == "darwin"
+    windows: bool = utils.platform() == "windows"
+    macos: bool = utils.platform() == "darwin"
 
-    button_file: str = str(button.cget("text")) #type: ignore
-    file_path: str = os.path.join(app.file_path, button_file)
+    button_file: Path = Path(button.cget("text")) #type: ignore
+    file_path: Path = app.file_path + button_file
 
     if windows:
         os.startfile(file_path)
@@ -170,7 +173,7 @@ def get_files_elevated_permissions(app: gui.App) -> None:
     if sys.platform == "win32":
         # Relaunch on Windows
         ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, " ".join(sys.argv+[app.file_path]), None, 1
+            None, "runas", sys.executable, " ".join(sys.argv+[str(app.file_path)]), None, 1
         )
 
     else:
@@ -184,7 +187,7 @@ def get_files_elevated_permissions(app: gui.App) -> None:
 
 def populate_files(app: gui.App, refresh: bool = False) -> None:   
     app.main_section.scroll_to_top()
-    file_path: str = app.file_path
+    file_path: Path = app.file_path
 
     for widget in app.main_section.widgets[:]:
         app.main_section.remove_widget(widget)
@@ -192,8 +195,8 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
     for widget in app.details_bar.widgets[:]:
         app.details_bar.remove_widget(widget)
 
-    files_list: list[str]
-    folders: list[str]
+    files_list: list[Path]
+    folders: list[Path]
 
     if file_path in app.extra_details["directories"] and not refresh:
         files_list = app.extra_details["directories"][file_path]["files"]
@@ -243,15 +246,21 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
 def back_directory(app: gui.App) -> None:
     red = "\u001b[31m"
     norm = "\u001b[0m"
-    file_path: list[str] = app.file_path.split('\\')
+    file_path: list[str] = app.file_path.as_list()
     print(f"{red}current_file_path: {repr(str(file_path))}{norm}")
-    while '' in file_path:
-        file_path.remove('')
+
+    new_fp: Path
 
     if len(file_path) != 1:
-        new_fp: str = '\\'.join(file_path[:-1])
+        new_fp = Path(file_path[:-1])
+    elif (
+        (file_path == ['/'] and utils.platform() != "windows")
+        or utils.platform() == "windows"
+    ):
+        new_fp = Path()
     else:
-        new_fp: str = ""
+        new_fp = Path('/')
+
     app.file_path = new_fp
     print(f"{red}new_file_path: {repr(str(new_fp))}{norm}")
     print(f"{red}app file path: {repr(app.file_path)}{norm}")
@@ -275,12 +284,12 @@ def open_share_menu(file_path: str) -> None:
 
 def _update_details_bar(
     app: gui.App,
-    metadata_dict: dict[str, str | files.datetime | None]
+    metadata_dict: dict[str, str | Path | files.datetime | None]
 ) -> None:
-    owner: str | files.datetime | None = metadata_dict.get("Owner")
-    item_type: str | files.datetime | None = metadata_dict.get("Item")
-    modified_date: str | files.datetime | None = metadata_dict.get("Last Modified")
-    size: str | files.datetime | None = metadata_dict.get("File Size")
+    owner: str | Path | files.datetime | None = metadata_dict.get("Owner")
+    item_type: str | Path | files.datetime | None = metadata_dict.get("Item")
+    modified_date: str | Path | files.datetime | None = metadata_dict.get("Last Modified")
+    size: str | Path | files.datetime | None = metadata_dict.get("File Size")
 
     if isinstance(modified_date, files.datetime):
         modified_date = modified_date.strftime("%d-%m-%Y %H:%M:%S")
@@ -312,13 +321,17 @@ def main() -> None:
 
     app: gui.App = setup_app(parser)
     app.app_name = "Elysium"
-    app.root_dir = "E:\\file explorer"
+    app.root_dir = Path("E:\\file explorer")
 
-    user_settings: settings.Settings = get_settings(os.path.join(app.root_dir, "Settings", "userSettings.json"))
+    user_settings: settings.Settings = get_settings(
+        app.root_dir
+        + Path("Settings")
+        + Path("userSettings.json")
+    )
 
     app.file_path = user_settings.start_directory
 
-    ctk.set_default_color_theme(user_settings.color_theme)
+    ctk.set_default_color_theme(str(user_settings.color_theme))
     ctk.set_appearance_mode(user_settings.color_mode)
 
 
