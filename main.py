@@ -320,7 +320,7 @@ def _update_details_bar(
 
 
 def main() -> None:
-    parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.2.1")
+    parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.2.2")
 
     app: gui.App = setup_app(parser)
     app.app_name = "Elysium"
