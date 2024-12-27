@@ -3,6 +3,7 @@ import argparse
 import ctypes
 import json
 import os
+from PIL import Image, ImageTk
 import subprocess
 import threading
 from typing import Any, Callable
@@ -52,13 +53,13 @@ efficiency without compromising flexibility.
         "-w", 
         "--width", 
         help="Sets the width of the window",
-        default=1000
+        default=None
     )
     parser.add_argument(
         "-t", 
         "--height", 
         help="Sets the height of the window",
-        default=500
+        default=None
     )
     parser.add_argument(
         "-x", 
@@ -86,10 +87,16 @@ efficiency without compromising flexibility.
 def setup_app(parser: argparse.Namespace) -> gui.App:
     """Initialised the application"""
     app: gui.App = gui.App()
+    screen_width: int = app.root.winfo_screenwidth()
+    screen_height: int = app.root.winfo_screenheight()
+
+    width: int = parser.width or int(screen_width * 0.8)
+    height: int = parser.height or int(screen_height * 0.8)
+
 
     app.geometry = {
-        "width": parser.width,
-        "height": parser.height,
+        "width": width,
+        "height": height,
         "x": parser.xCoord,
         "y": parser.yCoord
     }
@@ -99,6 +106,7 @@ def setup_app(parser: argparse.Namespace) -> gui.App:
 
 def get_settings(file_path: Path) -> settings.Settings:
     sett: settings.Settings = settings.Settings()
+
     
     with open(file_path, "r") as f:
         sett.parse_settings(json.load(f))
@@ -244,10 +252,7 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
 
 
 def back_directory(app: gui.App) -> None:
-    red = "\u001b[31m"
-    norm = "\u001b[0m"
     file_path: list[str] = app.file_path.as_list()
-    print(f"{red}current_file_path: {repr(str(file_path))}{norm}")
 
     new_fp: Path
 
@@ -262,8 +267,6 @@ def back_directory(app: gui.App) -> None:
         new_fp = Path('/')
 
     app.file_path = new_fp
-    print(f"{red}new_file_path: {repr(str(new_fp))}{norm}")
-    print(f"{red}app file path: {repr(app.file_path)}{norm}")
     if "selected" in app.extra_details:
         del app.extra_details["selected"]
     populate_files(app)
@@ -317,11 +320,11 @@ def _update_details_bar(
 
 
 def main() -> None:
-    parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.2.0")
+    parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.2.1")
 
     app: gui.App = setup_app(parser)
     app.app_name = "Elysium"
-    app.root_dir = Path("E:\\file explorer")
+    app.root_dir = Path()
 
     user_settings: settings.Settings = get_settings(
         app.root_dir
@@ -335,37 +338,44 @@ def main() -> None:
     ctk.set_appearance_mode(user_settings.color_mode)
 
 
-    app.root.iconbitmap(f"{app.root_dir}\\Images\\ElysiumLogo.ico") # type: ignore
+    if utils.platform() != "windows":
+        app.root.iconphoto(True, gui.tk.PhotoImage(str(Path(
+            [str(app.root_dir), "Images", "ElysiumLogo.png"]
+        ))))
+    else:
+        app.root.icon(
+            Path([str(app.root_dir), "Images", "ElysiumLogo.ico"])
+        )
 
     if parser.directory is not None and os.path.isdir(parser.directory):
         app.file_path = parser.directory
 
     app.add_image(
         "logo",
-        f"{app.root_dir}\\Images\\ElysiumLogo.png",
+        Path([str(app.root_dir), "Images", "ElysiumLogo.png"]),
         size=(45, 45)
     )
     app.add_image(
         "new_file",
-        f"{app.root_dir}\\Images\\light\\new_file.png",
-        f"{app.root_dir}\\Images\\dark\\new_file.png",
+        Path([str(app.root_dir), "Images", "light", "new_file.png"]),
+        Path([str(app.root_dir), "Images", "dark", "new_file.png"]),
         size=(25, 25)
     )
     app.add_image(
         "settings",
-        f"{app.root_dir}\\Images\\light\\settings.png",
-        f"{app.root_dir}\\Images\\dark\\settings.png",
+        Path([str(app.root_dir), "Images", "light", "settings.png"]),
+        Path([str(app.root_dir), "Images", "dark", "settings.png"]),
         size=(25, 25)
     )
     app.add_image(
         "file",
-        f"{app.root_dir}\\Images\\light\\file.png",
-        f"{app.root_dir}\\Images\\dark\\file.png"
+        Path([str(app.root_dir), "Images", "light", "file.png"]),
+        Path([str(app.root_dir), "Images", "dark", "file.png"])
     )
     app.add_image(
         "folder",
-        f"{app.root_dir}\\Images\\light\\folder.png",
-        f"{app.root_dir}\\Images\\dark\\folder.png"
+        Path([str(app.root_dir), "Images", "light", "folder.png"]),
+        Path([str(app.root_dir), "Images", "dark", "folder.png"])
     )
 
     app.extra_details["directories"] = {

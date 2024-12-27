@@ -68,6 +68,11 @@ class Path:
         
         return tuple(Path(x) for x in os.listdir(self.path))
     
+    def split(self, sep: str) -> tuple[Path, ...]:
+        items: list[str] = self.path.split(sep)
+
+        return tuple(Path(item) for item in items)
+    
     @property
     def separator(self) -> str:
         return self._separator
@@ -75,11 +80,6 @@ class Path:
     @property
     def path(self) -> str:
         return self._path
-    
-    def split(self, sep: str) -> tuple[Path, ...]:
-        items: list[str] = self.path.split(sep)
-
-        return tuple(Path(item) for item in items)
     
     @path.setter
     def path(self, value: str | list[str]) -> None:

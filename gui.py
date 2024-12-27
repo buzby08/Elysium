@@ -343,6 +343,8 @@ class App:
     
     @file_path.setter
     def file_path(self, value: Path) -> None:
+        value = files.fix_path(value)
+        
         if not value.valid_dir():
             raise NotADirectoryError(f"file_path expects a directory! {value} does not match!")
 
