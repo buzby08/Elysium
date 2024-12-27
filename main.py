@@ -343,8 +343,8 @@ def main() -> None:
             [str(app.root_dir), "Images", "ElysiumLogo.png"]
         ))))
     else:
-        app.root.icon(
-            Path([str(app.root_dir), "Images", "ElysiumLogo.ico"])
+        app.root.iconbitmap(
+            Path([str(app.root_dir), "Images", "ElysiumLogo.ico"]).path
         )
 
     if parser.directory is not None and os.path.isdir(parser.directory):
