@@ -1,6 +1,4 @@
 from __future__ import annotations
-import os
-import re
 import tkinter as tk
 from typing import Any, Callable
 from PIL import Image
@@ -8,7 +6,9 @@ from PIL import Image
 from PIL.ImageFile import ImageFile
 import customtkinter as ctk #type: ignore
 
-import settings
+from files import Path
+import files
+
 
 
 
@@ -215,14 +215,14 @@ class App:
         self._x_coord: int = 150
         self._y_coord: int = 100
         self._fullscreen: bool = False
-        self._file_path: str = ""
+        self._file_path: Path = Path()
         self._widgets: list[
             ctk.CTkBaseClass 
             | ctk.CTkFrame 
             | ctk.CTkScrollableFrame
         ] = []
         self._display_fp_widget: ctk.CTkLabel | None = None
-        self._root_dir: str = ""
+        self._root_dir: Path = Path()
         self._images: dict[str, ctk.CTkImage] = {}
 
         self.extra_details: dict[str, Any] = {}
@@ -296,18 +296,18 @@ class App:
     def add_image(
         self,
         name: str,
-        light_image_file_path: str | None = None,
-        dark_image_file_path: str | None = None,
+        light_image_file_path: Path | None = None,
+        dark_image_file_path: Path | None = None,
         size: tuple[int, int] = (20, 20)
     ) -> None:
         light_image: ImageFile | None = None
         dark_image: ImageFile | None = None
 
         if light_image_file_path:
-            light_image = Image.open(light_image_file_path)
+            light_image = Image.open(str(light_image_file_path))
 
         if dark_image_file_path:
-            dark_image = Image.open(dark_image_file_path)
+            dark_image = Image.open(str(dark_image_file_path))
 
         self._images[name] = ctk.CTkImage(light_image, dark_image, size) #type: ignore
 
@@ -338,27 +338,17 @@ class App:
         self._fullscreen = state
 
     @property
-    def file_path(self) -> str:
+    def file_path(self) -> Path:
         return self._file_path
     
     @file_path.setter
-    def file_path(self, value: str | list[str]) -> None:
-        if isinstance(value, list):
-            value = os.path.join(*value)
+    def file_path(self, value: Path) -> None:
+        value = files.fix_path(value)
         
-        if settings.platform() == "windows":
-            value = re.sub(r"(?<=:)(?!\\)", r"\\", value)
-
-        if not os.path.isdir(value) and value != '':
+        if not value.valid_dir():
             raise NotADirectoryError(f"file_path expects a directory! {value} does not match!")
 
-        if not value.endswith('\\'):
-            value = value + '\\'
-
-        if value == '\\':
-            self._file_path = ''
-        else:
-            self._file_path = os.path.realpath(value)
+        self._file_path = files.fix_path(value)
             
         if self._display_fp_widget is not None:
             self._display_fp_widget.configure(text=value) #type: ignore
@@ -418,22 +408,15 @@ class App:
         self._display_fp_widget = value
 
     @property
-    def root_dir(self) -> str:
+    def root_dir(self) -> Path:
         return self._root_dir
     
     @root_dir.setter
-    def root_dir(self, value: str | list[str]) -> None:
-        if isinstance(value, list):
-            value = os.path.join(*value)
+    def root_dir(self, value: Path) -> None:
+        if not value.valid_dir():
+            raise NotADirectoryError(f"root_dir expects a directory! {value} does not match!")
 
-        value_empty: bool = value == ""
-        if not value_empty and not os.path.isdir(value):
-            raise NotADirectoryError(
-                "root_dir must be a directory or empty string, not "
-                + f"'{value}'."
-            )
-        
-        self._root_dir = value
+        self._root_dir = files.fix_path(value)
 
     @property
     def images(self) -> dict[str, ctk.CTkImage]:

@@ -1,12 +1,11 @@
 {
     "colorMode": "dark",
-    "colorTheme": ["E:\\", "file explorer", "Themes", "widgetTheme.json"],
-    "startDirectory": ["C:", "Users", "Liamj"],
+    "colorTheme": ["Themes", "widgetTheme.json"],
+    "startDirectory": [],
     "recentFiles": [
-        ["E:\\", "file explorer", "test.md"]
+        []
     ],
     "fileAssociation": {
-        "txt": "notepad.exe"
     },
     "globalAIRules": {
             "fileExtensions": {
@@ -14,8 +13,6 @@
                 "csv": ["data"]
             },
             "globalFolders": [
-                ["C:\\", "Users", "Liamj"],
-                ["C:\\", "Users", "Public"]
             ],
             "sortOnClose": true
     },

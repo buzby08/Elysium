@@ -1,8 +1,8 @@
-from functools import cache
 import os
-import platform as pform
-import re
-from typing import Any
+from typing import Any, cast
+
+from files import fix_path, Path
+
 
 
 class File_Association:
@@ -102,9 +102,9 @@ class Settings:
         self.__name__: str = "Settings"
 
         self._color_mode: str = "dark"
-        self._color_theme: str = os.path.join("E:\\", "file explorer", "Themes", "widgetTheme.json")
-        self._start_directory: str = os.path.join("C:\\", "Users")
-        self._recent_files: list[str] = []
+        self._color_theme: Path = Path("Themes") + Path("widgetTheme.json")
+        self._start_directory: Path = Path()
+        self._recent_files: list[Path] = []
         self.file_association: File_Association = File_Association()
         self.global_ai_rules: AI_Rules = AI_Rules()
         self.local_ai_rules: AI_Rules = AI_Rules()
@@ -143,47 +143,50 @@ class Settings:
         self._color_mode = value.strip().lower()
     
     @property
-    def color_theme(self) -> str:
+    def color_theme(self) -> Path:
         return self._color_theme
     
     @color_theme.setter
-    def color_theme(self, value: str | list[str]) -> None:
-        if isinstance(value, list):
-            value = os.path.join(*value)
-
-        if not os.path.isfile(value):
-            raise FileNotFoundError(f"'{value}' does not exist, and could not be found")
+    def color_theme(self, value: Path | str | list[str]) -> None:
+        if isinstance(value, str) or isinstance(value, list):
+            value = Path(value)
+            
+        if not value.valid_file():
+            raise FileNotFoundError(f"{repr(value)} does not exist, and could not be found")
 
         self._color_theme = value
 
     @property
-    def start_directory(self) -> str:
+    def start_directory(self) -> Path:
         return self._start_directory
     
     @start_directory.setter
-    def start_directory(self, value: str | list[str]) -> None:
-        if isinstance(value, list):
-            value = os.path.join(*value)
-        
-        if platform() == "windows":
-            value = re.sub(r"(?<=:)(?!\\)", r"\\", value)
-        
-        if not os.path.isdir(value):
-            raise NotADirectoryError(f"{value} is not a directory!")
+    def start_directory(self, value: Path | str | list[str]) -> None:
+        if isinstance(value, str) or isinstance(value, list):
+            value = Path(value)
 
-        self._start_directory = value
+        if not value.valid_dir():
+            raise NotADirectoryError(
+                "start_directory expects a directory! "
+                f"{repr(value)} does not match!"
+            )
+
+        self._start_directory = fix_path(value)
 
     @property
-    def recent_files(self) -> list[str]:
+    def recent_files(self) -> list[Path]:
         return self._recent_files
     
     @recent_files.setter
-    def recent_files(self, value: list[str]) -> None:
+    def recent_files(self, value: list[Path | str | list[str]]) -> None:
+        for i, item in enumerate(value):
+            if isinstance(item, str) or isinstance(item, list):
+                value[i] = Path(item)
+
         error: bool = False
 
         for item in value:
-            path: str = os.path.join(*item)
-            if not os.path.isfile(path):
+            if not cast(Path, item).valid_file():
                 error = True
         
         if error:
@@ -191,7 +194,7 @@ class Settings:
                 "One or more values given were not found, "
                 + "or were not files."
             )
-        self._recent_files = value
+        self._recent_files = [Path(x) for x in value if isinstance(x, str)]
 
     def __str__(self) -> str:
         result: str = ""
@@ -201,10 +204,3 @@ class Settings:
             result += f"@{self.__name__} - {key}: {value}\n"
 
         return result
-
-
-
-@cache
-def platform() -> str:
-    """Returns the lowercase platform name for the system"""
-    return pform.system().lower()

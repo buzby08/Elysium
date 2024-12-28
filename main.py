@@ -3,6 +3,7 @@ import argparse
 import ctypes
 import json
 import os
+from PIL import Image, ImageTk
 import subprocess
 import threading
 from typing import Any, Callable
@@ -11,8 +12,10 @@ import sys
 import customtkinter as ctk #type: ignore
 
 import files
+from files import Path
 import gui
 import settings
+import utils
 
 
 
@@ -50,13 +53,13 @@ efficiency without compromising flexibility.
         "-w", 
         "--width", 
         help="Sets the width of the window",
-        default=1000
+        default=None
     )
     parser.add_argument(
         "-t", 
         "--height", 
         help="Sets the height of the window",
-        default=500
+        default=None
     )
     parser.add_argument(
         "-x", 
@@ -84,10 +87,16 @@ efficiency without compromising flexibility.
 def setup_app(parser: argparse.Namespace) -> gui.App:
     """Initialised the application"""
     app: gui.App = gui.App()
+    screen_width: int = app.root.winfo_screenwidth()
+    screen_height: int = app.root.winfo_screenheight()
+
+    width: int = parser.width or int(screen_width * 0.8)
+    height: int = parser.height or int(screen_height * 0.8)
+
 
     app.geometry = {
-        "width": parser.width,
-        "height": parser.height,
+        "width": width,
+        "height": height,
         "x": parser.xCoord,
         "y": parser.yCoord
     }
@@ -95,8 +104,9 @@ def setup_app(parser: argparse.Namespace) -> gui.App:
     return app
 
 
-def get_settings(file_path: str) -> settings.Settings:
+def get_settings(file_path: Path) -> settings.Settings:
     sett: settings.Settings = settings.Settings()
+
     
     with open(file_path, "r") as f:
         sett.parse_settings(json.load(f))
@@ -107,11 +117,11 @@ def get_settings(file_path: str) -> settings.Settings:
 def fetch_metadata(
     app: gui.App,
     file_path: str,
-    callback: Callable[[gui.App, dict[str, str | files.datetime | None]], Any]
+    callback: Callable[[gui.App, dict[str, str | Path | files.datetime | None]], Any]
 ) -> None:
     def worker():
-        metadata_dict: dict[str, str | files.datetime | None] = (
-            files.get_file_metadata(file_path)
+        metadata_dict: dict[str, str | Path| files.datetime | None] = (
+            files.get_file_metadata(Path(file_path))
         )
         callback(app, metadata_dict)
 
@@ -141,19 +151,20 @@ def display_details(button: gui.Button, app: gui.App) -> None:
 
 
 def open_folder(button: gui.Button, app: gui.App) -> None:
-    file_path: str = str(button.cget("text")) #type: ignore
-    full_file_path: str = os.path.join(app.file_path, file_path)
+    file_path: Path = Path(button.cget("text")) #type: ignore
+    full_file_path: Path = app.file_path + file_path
+    
 
     app.file_path = full_file_path
     populate_files(app)
 
 
 def open_file(button: gui.Button, app: gui.App) -> None:
-    windows: bool = settings.platform() == "windows"
-    macos: bool = settings.platform() == "darwin"
+    windows: bool = utils.platform() == "windows"
+    macos: bool = utils.platform() == "darwin"
 
-    button_file: str = str(button.cget("text")) #type: ignore
-    file_path: str = os.path.join(app.file_path, button_file)
+    button_file: Path = Path(button.cget("text")) #type: ignore
+    file_path: Path = app.file_path + button_file
 
     if windows:
         os.startfile(file_path)
@@ -170,7 +181,7 @@ def get_files_elevated_permissions(app: gui.App) -> None:
     if sys.platform == "win32":
         # Relaunch on Windows
         ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, " ".join(sys.argv+[app.file_path]), None, 1
+            None, "runas", sys.executable, " ".join(sys.argv+[str(app.file_path)]), None, 1
         )
 
     else:
@@ -184,7 +195,7 @@ def get_files_elevated_permissions(app: gui.App) -> None:
 
 def populate_files(app: gui.App, refresh: bool = False) -> None:   
     app.main_section.scroll_to_top()
-    file_path: str = app.file_path
+    file_path: Path = app.file_path
 
     for widget in app.main_section.widgets[:]:
         app.main_section.remove_widget(widget)
@@ -192,8 +203,8 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
     for widget in app.details_bar.widgets[:]:
         app.details_bar.remove_widget(widget)
 
-    files_list: list[str]
-    folders: list[str]
+    files_list: list[Path]
+    folders: list[Path]
 
     if file_path in app.extra_details["directories"] and not refresh:
         files_list = app.extra_details["directories"][file_path]["files"]
@@ -241,20 +252,21 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
 
 
 def back_directory(app: gui.App) -> None:
-    red = "\u001b[31m"
-    norm = "\u001b[0m"
-    file_path: list[str] = app.file_path.split('\\')
-    print(f"{red}current_file_path: {repr(str(file_path))}{norm}")
-    while '' in file_path:
-        file_path.remove('')
+    file_path: list[str] = app.file_path.as_list()
+
+    new_fp: Path
 
     if len(file_path) != 1:
-        new_fp: str = '\\'.join(file_path[:-1])
+        new_fp = Path(file_path[:-1])
+    elif (
+        (file_path == ['/'] and utils.platform() != "windows")
+        or utils.platform() == "windows"
+    ):
+        new_fp = Path()
     else:
-        new_fp: str = ""
+        new_fp = Path('/')
+
     app.file_path = new_fp
-    print(f"{red}new_file_path: {repr(str(new_fp))}{norm}")
-    print(f"{red}app file path: {repr(app.file_path)}{norm}")
     if "selected" in app.extra_details:
         del app.extra_details["selected"]
     populate_files(app)
@@ -275,12 +287,12 @@ def open_share_menu(file_path: str) -> None:
 
 def _update_details_bar(
     app: gui.App,
-    metadata_dict: dict[str, str | files.datetime | None]
+    metadata_dict: dict[str, str | Path | files.datetime | None]
 ) -> None:
-    owner: str | files.datetime | None = metadata_dict.get("Owner")
-    item_type: str | files.datetime | None = metadata_dict.get("Item")
-    modified_date: str | files.datetime | None = metadata_dict.get("Last Modified")
-    size: str | files.datetime | None = metadata_dict.get("File Size")
+    owner: str | Path | files.datetime | None = metadata_dict.get("Owner")
+    item_type: str | Path | files.datetime | None = metadata_dict.get("Item")
+    modified_date: str | Path | files.datetime | None = metadata_dict.get("Last Modified")
+    size: str | Path | files.datetime | None = metadata_dict.get("File Size")
 
     if isinstance(modified_date, files.datetime):
         modified_date = modified_date.strftime("%d-%m-%Y %H:%M:%S")
@@ -308,51 +320,62 @@ def _update_details_bar(
 
 
 def main() -> None:
-    parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.1.2")
+    parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.2.2")
 
     app: gui.App = setup_app(parser)
     app.app_name = "Elysium"
-    app.root_dir = "_internal"
+    app.root_dir = Path()
 
-    user_settings: settings.Settings = get_settings(os.path.join(app.root_dir, "Settings", "userSettings.json"))
+    user_settings: settings.Settings = get_settings(
+        app.root_dir
+        + Path("Settings")
+        + Path("userSettings.json")
+    )
 
     app.file_path = user_settings.start_directory
 
-    ctk.set_default_color_theme(user_settings.color_theme)
+    ctk.set_default_color_theme(str(user_settings.color_theme))
     ctk.set_appearance_mode(user_settings.color_mode)
 
 
-    app.root.iconbitmap(f"{app.root_dir}\\Images\\ElysiumLogo.ico") # type: ignore
+    if utils.platform() != "windows":
+        app.root.iconphoto(True, gui.tk.PhotoImage(str(Path(
+            [str(app.root_dir), "Images", "ElysiumLogo.png"]
+        ))))
+    else:
+        app.root.iconbitmap(
+            Path([str(app.root_dir), "Images", "ElysiumLogo.ico"]).path
+        )
 
     if parser.directory is not None and os.path.isdir(parser.directory):
         app.file_path = parser.directory
 
     app.add_image(
         "logo",
-        f"{app.root_dir}\\Images\\ElysiumLogo.png",
+        Path([str(app.root_dir), "Images", "ElysiumLogo.png"]),
         size=(45, 45)
     )
     app.add_image(
         "new_file",
-        f"{app.root_dir}\\Images\\light\\new_file.png",
-        f"{app.root_dir}\\Images\\dark\\new_file.png",
+        Path([str(app.root_dir), "Images", "light", "new_file.png"]),
+        Path([str(app.root_dir), "Images", "dark", "new_file.png"]),
         size=(25, 25)
     )
     app.add_image(
         "settings",
-        f"{app.root_dir}\\Images\\light\\settings.png",
-        f"{app.root_dir}\\Images\\dark\\settings.png",
+        Path([str(app.root_dir), "Images", "light", "settings.png"]),
+        Path([str(app.root_dir), "Images", "dark", "settings.png"]),
         size=(25, 25)
     )
     app.add_image(
         "file",
-        f"{app.root_dir}\\Images\\light\\file.png",
-        f"{app.root_dir}\\Images\\dark\\file.png"
+        Path([str(app.root_dir), "Images", "light", "file.png"]),
+        Path([str(app.root_dir), "Images", "dark", "file.png"])
     )
     app.add_image(
         "folder",
-        f"{app.root_dir}\\Images\\light\\folder.png",
-        f"{app.root_dir}\\Images\\dark\\folder.png"
+        Path([str(app.root_dir), "Images", "light", "folder.png"]),
+        Path([str(app.root_dir), "Images", "dark", "folder.png"])
     )
 
     app.extra_details["directories"] = {
