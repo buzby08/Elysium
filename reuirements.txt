@@ -1,0 +1,4 @@
+customtkinter
+psutil
+win32security
+win32api
