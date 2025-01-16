@@ -1,7 +1,7 @@
 # Custom License Agreement for Elysium
 
 **Effective Date:** 2024-12-28  
-**Copyright (c) 2024, Liam Busby**
+**Copyright (c) 2024, Liam James Busby**
 
 ---
 
@@ -21,7 +21,7 @@ Licensee may:
 ## 3. Attribution Requirements
 When sharing the Software, Licensee must:
 1. Retain all copyright notices included in the original Software.  
-2. Clearly credit the original author (Liam Busby) in any shared copies or modified versions.  
+2. Clearly credit the original author (Liam James Busby) in any shared copies or modified versions.  
 3. Include a link to the original source or repository as part of the attribution.
 
 ---
