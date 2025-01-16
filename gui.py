@@ -423,21 +423,28 @@ class App:
         return self._images
 
     def __getattr__(self, name: str) -> Any:
-        raise AttributeError
+        if not hasattr(self, name):
+            raise AttributeError(
+                f"Attribute {name} of class {self.__class__.__name__} "
+                + "does not exist."
+            )
+        
+        return self.__getattribute__(name)
 
     def __delattr__(self, name: str) -> None:
-        if name in [
-            "parser",
-            "app_name",
-            "width",
-            "height",
-            "coords",
-            "x_coord",
-            "y_coord"
-        ]:
-            raise AttributeError(f"'{name}' cannot be deleted.")
-        
-        super().__delattr__(name)
+        try:
+            if not hasattr(self, name):
+                return
+            
+            attr = self.__dict__.get(name)
+            if attr.__dict__["protected"]:
+                raise AttributeError(
+                    f"Attribute {name} of class {self.__class__.__name__} "
+                    + "is protected and cannot be deleted. Please remove "
+                    + "the 'protected' flag first."
+                )
+        finally:
+            super().__delattr__(name)
 
 
 

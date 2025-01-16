@@ -2,23 +2,148 @@
     "colorMode": "dark",
     "colorTheme": ["Themes", "widgetTheme.json"],
     "startDirectory": [],
-    "recentFiles": [
-        []
-    ],
+    "recentFiles": [[]],
     "fileAssociation": {
+        "documents": "notepad.exe"
     },
     "globalAIRules": {
-            "fileExtensions": {
-                "txt": ["documents"],
-                "csv": ["data"]
-            },
-            "globalFolders": [
+        "fileExtensions": {
+            "executables": [
+                "exe",
+                "app",
+                "bat",
+                "sh",
+                "msi",
+                "bin",
+                "run",
+                "command"
             ],
-            "sortOnClose": true
+            "documents": [
+                "pdf",
+                "doc",
+                "docx",
+                "odt",
+                "rtf",
+                "txt",
+                "pages",
+                "md",
+                "epub",
+                "mobi",
+                "tex"
+            ],
+            "spreadsheets": ["xls", "xlsx", "ods", "csv", "tsv", "numbers"],
+            "presentations": ["ppt", "pptx", "odp", "key", "pps", "ppsx"],
+            "images": [
+                "jpg",
+                "jpeg",
+                "png",
+                "gif",
+                "bmp",
+                "tiff",
+                "svg",
+                "ico",
+                "webp",
+                "heic"
+            ],
+            "audio": [
+                "mp3",
+                "wav",
+                "aac",
+                "ogg",
+                "flac",
+                "m4a",
+                "wma",
+                "aiff",
+                "mid",
+                "amr"
+            ],
+            "video": [
+                "mp4",
+                "mkv",
+                "avi",
+                "mov",
+                "wmv",
+                "flv",
+                "webm",
+                "3gp",
+                "m4v",
+                "ts",
+                "vob"
+            ],
+            "archives": [
+                "zip",
+                "rar",
+                "7z",
+                "tar",
+                "gz",
+                "bz2",
+                "xz",
+                "tgz",
+                "tar.gz"
+            ],
+            "disk_images": ["iso", "vdi", "vmdk", "img", "dmg", "ova", "qcow2"],
+            "web": [
+                "html",
+                "htm",
+                "css",
+                "js",
+                "php",
+                "xml",
+                "json",
+                "asp",
+                "aspx",
+                "jsp",
+                "vue",
+                "ts",
+                "scss"
+            ],
+            "programming": [
+                "py",
+                "pyw",
+                "java",
+                "c",
+                "cpp",
+                "cs",
+                "rb",
+                "js",
+                "ts",
+                "go",
+                "swift",
+                "php",
+                "pl",
+                "sh",
+                "bat",
+                "kt",
+                "scala",
+                "rs",
+                "lua"
+            ],
+            "system": ["sys", "dll", "ini", "cfg", "plist", "log", "dmp"],
+            "databases": [
+                "db",
+                "sql",
+                "mdb",
+                "accdb",
+                "sqlite",
+                "dbf",
+                "parquet"
+            ],
+            "fonts": ["ttf", "otf", "woff", "woff2", "eot"],
+            "config": [
+                "json",
+                "yaml",
+                "yml",
+                "xml",
+                "ini",
+                "cfg",
+                "toml",
+                "env"
+            ]
+        },
+        "globalFolders": [],
+        "sortOnClose": true
     },
     "localAIRules": {
-        "fileExtensions": [
-            
-        ]
+        "fileExtensions": []
     }
 }

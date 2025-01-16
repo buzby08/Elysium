@@ -7,14 +7,20 @@ from files import fix_path, Path
 
 class File_Association:
     def __init__(self) -> None:
+        """Initialises the file associations class."""
         self.__name__: str = "File_Association"
         return None
-    
-    def parse_dict(self, obj: dict[str, str]) -> None:
+
+    def parse_dict(self, obj: dict[str, list[str]]) -> None:
+        """Parses a dictionary with all the file association data."""
         for key, value in obj.items():
             self.__setattr__(key, value)
-    
+
     def __getattr__(self, name: str) -> Any:
+        """
+        This method attempts to get a specified attribute, raising an
+        error if it does not exist.
+        """
         return "Attr does not exist"
 
     def __str__(self) -> str:
@@ -25,13 +31,13 @@ class File_Association:
             result += f"@{self.__name__} - {key}: {value}\n"
 
         return result
-    
+
 
 class File_Extensions:
     def __init__(self) -> None:
         self.__name__: str = "File_Extensions"
         return None
-    
+
     def parse_dict(self, obj: dict[str, str|list[str]]) -> None:
         for key, value in obj.items():
             string_value: str | list[str] = value
@@ -45,7 +51,7 @@ class File_Extensions:
         result: str = ""
         for key, value in self.__dict__.items():
             if key == "__name__": continue
-            
+
             result += f"@{self.__name__} - {key}: {value}\n"
 
         return result
@@ -62,7 +68,7 @@ class AI_Rules:
     @property
     def global_folders(self) -> list[str]:
         return self._global_folders
-    
+
     @global_folders.setter
     def global_folders(self, value: list[list[str]]) -> None:
         self._global_folders = []
@@ -75,13 +81,13 @@ class AI_Rules:
                 continue
 
             self._global_folders.append(path)
-        
+
         if error:
             raise FileNotFoundError(
                 "One or more values given were not found, "
                 + "or were not directories."
             )
-        
+
     @global_folders.deleter
     def global_folders(self) -> None:
         del self._global_folders
@@ -90,11 +96,10 @@ class AI_Rules:
         result: str = ""
         for key, value in self.__dict__.items():
             if key == "__name__": continue
-            
+
             result += f"@{self.__name__} - {key}: {value}\n"
 
         return result
-            
 
 
 class Settings:
@@ -118,7 +123,7 @@ class Settings:
         self.start_directory = obj.get("startDirectory", self.start_directory)
         self.recent_files = obj.get("recentFiles", self.recent_files)
         self.file_association.parse_dict(obj.get("fileAssociation", {}))
-        
+
         global_ai_rules = obj.get("globalAIRules", {})
         global_file_extensions = global_ai_rules.get("fileExtensions", {})
         global_folders = global_ai_rules.get("globalFolders", [])
@@ -135,22 +140,22 @@ class Settings:
     @property
     def color_mode(self) -> str:
         return self._color_mode
-    
+
     @color_mode.setter
     def color_mode(self, value: str) -> None:
         if not value.strip().lower() in ("light", "dark", "system"):
             raise ValueError("Color mode must be either 'light', 'dark', or 'system'.")
         self._color_mode = value.strip().lower()
-    
+
     @property
     def color_theme(self) -> Path:
         return self._color_theme
-    
+
     @color_theme.setter
     def color_theme(self, value: Path | str | list[str]) -> None:
         if isinstance(value, str) or isinstance(value, list):
             value = Path(value)
-            
+
         if not value.valid_file():
             raise FileNotFoundError(f"{repr(value)} does not exist, and could not be found")
 
@@ -159,7 +164,7 @@ class Settings:
     @property
     def start_directory(self) -> Path:
         return self._start_directory
-    
+
     @start_directory.setter
     def start_directory(self, value: Path | str | list[str]) -> None:
         if isinstance(value, str) or isinstance(value, list):
@@ -176,7 +181,7 @@ class Settings:
     @property
     def recent_files(self) -> list[Path]:
         return self._recent_files
-    
+
     @recent_files.setter
     def recent_files(self, value: list[Path | str | list[str]]) -> None:
         for i, item in enumerate(value):
@@ -188,7 +193,7 @@ class Settings:
         for item in value:
             if not cast(Path, item).valid_file():
                 error = True
-        
+
         if error:
             raise FileNotFoundError(
                 "One or more values given were not found, "
@@ -200,7 +205,7 @@ class Settings:
         result: str = ""
         for key, value in self.__dict__.items():
             if key == "__name__": continue
-            
+
             result += f"@{self.__name__} - {key}: {value}\n"
 
         return result

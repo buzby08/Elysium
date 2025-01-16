@@ -3,7 +3,7 @@ import argparse
 import ctypes
 import json
 import os
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk #type: ignore - This is needed on Linux, but not Win32
 import subprocess
 import threading
 from typing import Any, Callable
@@ -30,10 +30,10 @@ def setup_parser(arguments: list[str], version: str) -> argparse.Namespace:
         argparse.Namespace: The parsed arguments.
     """
     parser_help: str = """
-Elysium is a revolutionary organisational tool designed to streamline 
-workflows and redefine productivity. By blending modern aesthetics with 
-powerful functionality, Elysium offers an innovative approach to file 
-and project management, perfect for users seeking structure and 
+Elysium is a revolutionary organisational tool designed to streamline
+workflows and redefine productivity. By blending modern aesthetics with
+powerful functionality, Elysium offers an innovative approach to file
+and project management, perfect for users seeking structure and
 efficiency without compromising flexibility.
 """
     parser = argparse.ArgumentParser(description=parser_help)
@@ -50,26 +50,26 @@ efficiency without compromising flexibility.
         default=0
     )
     parser.add_argument(
-        "-w", 
-        "--width", 
+        "-w",
+        "--width",
         help="Sets the width of the window",
         default=None
     )
     parser.add_argument(
-        "-t", 
-        "--height", 
+        "-t",
+        "--height",
         help="Sets the height of the window",
         default=None
     )
     parser.add_argument(
-        "-x", 
-        "--xCoord", 
+        "-x",
+        "--xCoord",
         help="Sets the x coordinate of the window",
         default=200
     )
     parser.add_argument(
-        "-y", 
-        "--yCoord", 
+        "-y",
+        "--yCoord",
         help="Sets the y coordinate of the window",
         default=100
     )
@@ -85,7 +85,7 @@ efficiency without compromising flexibility.
 
 
 def setup_app(parser: argparse.Namespace) -> gui.App:
-    """Initialised the application"""
+    """Initialise the application"""
     app: gui.App = gui.App()
     screen_width: int = app.root.winfo_screenwidth()
     screen_height: int = app.root.winfo_screenheight()
@@ -105,23 +105,51 @@ def setup_app(parser: argparse.Namespace) -> gui.App:
 
 
 def get_settings(file_path: Path) -> settings.Settings:
+    """Generate a settings object from a given path."""
     sett: settings.Settings = settings.Settings()
 
-    
+
     with open(file_path, "r") as f:
         sett.parse_settings(json.load(f))
-    
+
     return sett
 
 
 def fetch_metadata(
     app: gui.App,
-    file_path: str,
+    file_path: Path,
     callback: Callable[[gui.App, dict[str, str | Path | files.datetime | None]], Any]
 ) -> None:
-    def worker():
-        metadata_dict: dict[str, str | Path| files.datetime | None] = (
-            files.get_file_metadata(Path(file_path))
+    """
+    Fetch metadata for a given file and invoke the provided callback
+    with the metadata.
+
+    This function runs in a separate thread to avoid blocking the main
+    thread. It retrieves the metadata of the file located at `file_path`
+    and calls the `callback` function, passing the `app` and the
+    metadata dictionary.
+
+    Args:
+        app (gui.App): The application instance that will be passed to
+            the callback function.
+        file_path (Path): The path to the file whose metadata is being
+            fetched.
+        callback (Callable[
+            [gui.App, dict[str, str | Path | files.datetime | None]],
+            Any
+        ]):
+            A callback function that will be invoked with the app
+            instance and a dictionary containing the file metadata. The
+            dictionary contains string keys and values that can be a
+            string, a Path object, a datetime object, or None.
+    """
+
+    def worker() -> None:
+        """
+        Worker function to fetch the file metadata in a separate thread.
+        """
+        metadata_dict: dict[str, str | Path | files.datetime | None] = (
+            files.get_file_metadata(file_path)
         )
         callback(app, metadata_dict)
 
@@ -130,36 +158,61 @@ def fetch_metadata(
 
 
 def display_details(button: gui.Button, app: gui.App) -> None:
-    file_path: str = str(button.cget("text")) #type: ignore
+    """
+    Display the details of the specified file/folder to the app details
+    panel
+
+    Args:
+        button (gui.Button): The button clicked. This should contain the
+            file path as the text.
+        app (gui.App): The app, allowing app.root_dir to be accessed.
+    """
+    file_path: Path = Path(button.cget("text")) #type: ignore
 
     previously_selected: gui.Button | None = app.extra_details.get("selected")
     item_exists: bool = gui.widget_exists(previously_selected)
     if previously_selected and item_exists:
         previously_selected.configure(border_color="gray") #type: ignore
-    
+
     if previously_selected is not button:
-        hover_color = button.cget("hover_color") #type: ignore
+        hover_color: str = button.cget("hover_color") #type: ignore
         button.configure(border_color=hover_color) #type: ignore
 
         app.extra_details["selected"] = button
 
     for widget in app.details_bar.widgets[:]:
         app.details_bar.remove_widget(widget)
-    
-    file_path = os.path.join(app.file_path, file_path)
+
+    file_path = app.file_path + file_path
     fetch_metadata(app, file_path, _update_details_bar)
 
 
 def open_folder(button: gui.Button, app: gui.App) -> None:
+    """
+    Opens a given folder in the application.
+
+    Args:
+        button (gui.Button): The button clicked. This should contain the
+            file path as the text.
+        app (gui.App): The app, allowing app.root_dir to be accessed.
+    """
     file_path: Path = Path(button.cget("text")) #type: ignore
     full_file_path: Path = app.file_path + file_path
-    
+
 
     app.file_path = full_file_path
     populate_files(app)
 
 
 def open_file(button: gui.Button, app: gui.App) -> None:
+    """
+    Opens a given file in the default application for the system. 
+
+    Args:
+        button (gui.Button): The button clicked. This should contain the
+            file path as the text.
+        app (gui.App): The app, allowing app.root_dir to be accessed.
+    """
     windows: bool = utils.platform() == "windows"
     macos: bool = utils.platform() == "darwin"
 
@@ -178,7 +231,8 @@ def open_file(button: gui.Button, app: gui.App) -> None:
 
 
 def get_files_elevated_permissions(app: gui.App) -> None:
-    if sys.platform == "win32":
+    """Requests elevated permissions from the user."""
+    if utils.platform() == "windows":
         # Relaunch on Windows
         ctypes.windll.shell32.ShellExecuteW(
             None, "runas", sys.executable, " ".join(sys.argv+[str(app.file_path)]), None, 1
@@ -193,13 +247,23 @@ def get_files_elevated_permissions(app: gui.App) -> None:
         app.main_section.warning_lbl.pack(fill=ctk.X, side=ctk.TOP)
 
 
-def populate_files(app: gui.App, refresh: bool = False) -> None:   
+def populate_files(app: gui.App, refresh: bool = False) -> None:
+    """
+    Displays all the files and folders in the apps current directory, on
+    the screen.
+
+    Args:
+        app (gui.App): The app.
+        refresh (bool, optional): This decides if the list of files and
+            folders in the current directory should be refreshed.
+            Defaults to False.
+    """
     app.main_section.scroll_to_top()
     file_path: Path = app.file_path
 
     for widget in app.main_section.widgets[:]:
         app.main_section.remove_widget(widget)
-    
+
     for widget in app.details_bar.widgets[:]:
         app.details_bar.remove_widget(widget)
 
@@ -211,7 +275,7 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
         folders = (
             app.extra_details["directories"][file_path]["folders"]
         )
-    
+
     else:
         files_list, folders = files.get_files_folders(file_path)
         app.extra_details["directories"][file_path] = {}
@@ -252,6 +316,7 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
 
 
 def back_directory(app: gui.App) -> None:
+    """This goes up one directory and repopulates the files."""
     file_path: list[str] = app.file_path.as_list()
 
     new_fp: Path
@@ -280,15 +345,21 @@ def new_file(event: gui.tk.Event[Any]) -> None:
     raise NotImplementedError
 
 
-def open_share_menu(file_path: str) -> None:
-    # Use the Windows explorer.exe shell to show the sharing UI
-    subprocess.run(["explorer", "/select,", file_path], shell=True)
-
-
 def _update_details_bar(
     app: gui.App,
     metadata_dict: dict[str, str | Path | files.datetime | None]
 ) -> None:
+    """
+    This is a private method used to update the details bar in the app
+    with the given metadata.
+
+    Args:
+        app (gui.App): The app containing the details bar
+        metadata_dict (dict[
+            str,
+            str  |  Path  |  files.datetime  |  None]):
+            The dictionary containing all the metadata.
+    """
     owner: str | Path | files.datetime | None = metadata_dict.get("Owner")
     item_type: str | Path | files.datetime | None = metadata_dict.get("Item")
     modified_date: str | Path | files.datetime | None = metadata_dict.get("Last Modified")
@@ -320,11 +391,12 @@ def _update_details_bar(
 
 
 def main() -> None:
+    """The main method for Elysium."""
     parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.2.2")
 
     app: gui.App = setup_app(parser)
     app.app_name = "Elysium"
-    app.root_dir = Path()
+    app.root_dir = Path("_internal")
 
     user_settings: settings.Settings = get_settings(
         app.root_dir
@@ -343,7 +415,7 @@ def main() -> None:
             [str(app.root_dir), "Images", "ElysiumLogo.png"]
         ))))
     else:
-        app.root.iconbitmap(
+        app.root.iconbitmap( #type: ignore
             Path([str(app.root_dir), "Images", "ElysiumLogo.ico"]).path
         )
 
@@ -414,19 +486,19 @@ def main() -> None:
         border_width=1
     ))
 
-    
+
     app.title_bar.add_widget(
-        "logo_lbl", 
-        ctk.CTkLabel, 
-        image=app.images["logo"], 
+        "logo_lbl",
+        ctk.CTkLabel,
+        image=app.images["logo"],
         text=""
     )
     app.title_bar.logo_lbl.pack(side=ctk.LEFT, padx=5)
 
     app.title_bar.add_widget(
-        "app_name", 
-        ctk.CTkLabel, 
-        text="Elysium", 
+        "app_name",
+        ctk.CTkLabel,
+        text="Elysium",
         font=("Arial", 20)
     )
     app.title_bar.app_name.pack(side=ctk.LEFT, padx=10)
@@ -462,7 +534,7 @@ def main() -> None:
 
     app.projects_bar.add_widget("separator", ctk.CTkFrame, height=2, fg_color="gray")
     app.projects_bar.separator.pack(side=ctk.TOP, fill=ctk.X, padx=10, pady=10)
-    
+
     app.projects_bar.add_button(gui.Button(
         "color_mode_btn",
         app.projects_bar,
@@ -495,7 +567,7 @@ def main() -> None:
 
     app.root.bind("<BackSpace>", lambda x: back_directory(app))
     app.root.bind("<Control-r>", lambda x: populate_files(app, refresh=True))
-    
+
     populate_files(app)
 
     app.run()

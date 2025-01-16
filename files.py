@@ -16,9 +16,16 @@ else:
 
 
 class Path:
-    def __init__(self, path: str | list[str] | None = None) -> None:
+    def __init__(
+        self,
+        path: str | list[str] | None = None,
+    ) -> None:
         path = path or ""
-        self._separator: str = '\\' if platform() == "windows" else '/'
+
+        self._separator: str = (
+            '\\' if platform() == "windows"
+            else '/'
+        )
         if isinstance(path, list):
             while '' in path:
                 path.remove('')
@@ -68,7 +75,9 @@ class Path:
         
         return tuple(Path(x) for x in os.listdir(self.path))
     
-    def split(self, sep: str) -> tuple[Path, ...]:
+    def split(self, sep: str | None = None) -> tuple[Path, ...]:
+        sep = sep or self._separator
+        
         items: list[str] = self.path.split(sep)
 
         return tuple(Path(item) for item in items)
