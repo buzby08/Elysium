@@ -1,7 +1,7 @@
 # Custom License Agreement for Elysium
 
 **Effective Date:** 2024-12-28  
-**Copyright (c) 2024, Liam James Busby**
+**Copyright (c) 2025, Liam James Busby**
 
 ---
 
