@@ -6,6 +6,7 @@ from PIL import Image
 from PIL.ImageFile import ImageFile
 import customtkinter as ctk #type: ignore
 
+import errors
 from files import Path
 import files
 
@@ -64,7 +65,11 @@ class Frame(ctk.CTkFrame):
 
     def remove_widget(self, widget: ctk.CTkBaseClass) -> None:
         if widget.__dict__.get("protected", False):
-            print(f"Cannot delete {widget}")
+            errors.warn(
+                None,
+                "Permission Error",
+                f"Can not delete widget `{widget}`. This widget is protected."
+            )
             return
         
         self._widgets.remove(widget)
@@ -129,7 +134,11 @@ class ScrollableFrame(ctk.CTkScrollableFrame):
 
     def remove_widget(self, widget: ctk.CTkBaseClass) -> None:
         if widget.__dict__.get("protected", False):
-            print(f"Cannot delete {widget}")
+            errors.warn(
+                None,
+                "Permission Error",
+                f"Can not delete widget `{widget}`. This widget is protected."
+            )
             return
         
         self._widgets.remove(widget)
@@ -287,7 +296,11 @@ class App:
 
     def remove_widget(self, widget: ctk.CTkBaseClass) -> None:
         if widget.__dict__.get("protected", False):
-            print(f"Cannot delete {widget}")
+            errors.warn(
+                None,
+                "Permission Error",
+                f"Can not delete widget `{widget}`. This widget is protected."
+            )
             return
         
         self._widgets.remove(widget)
@@ -346,7 +359,12 @@ class App:
         value = files.fix_path(value)
         
         if not value.valid_dir():
-            raise NotADirectoryError(f"file_path expects a directory! {value} does not match!")
+            errors.error(
+                self.root,
+                "Not a directory error",
+                "There was a problem changing the apps file path.",
+                f"file_path expects a directory! {value} does not match!"
+            )
 
         self._file_path = files.fix_path(value)
             
@@ -381,7 +399,12 @@ class App:
     @app_name.setter
     def app_name(self, value: str) -> None:
         if not value.strip():
-            raise ValueError("The app name cannot be blank.")
+            errors.warn(
+                None,
+                "Value Error",
+                "The apps name cannot be blank. "
+                + "The app name has not been changed."
+            )
         
         self.root.title(value.strip())
         self._app_name = value.strip()
@@ -414,7 +437,12 @@ class App:
     @root_dir.setter
     def root_dir(self, value: Path) -> None:
         if not value.valid_dir():
-            raise NotADirectoryError(f"root_dir expects a directory! {value} does not match!")
+            errors.error(
+                self.root,
+                "Not a directory",
+                "There was a problem setting the app's root directory.",
+                f"root_dir expects a directory! {repr(value)} does not match!"
+            )
 
         self._root_dir = files.fix_path(value)
 
@@ -423,21 +451,33 @@ class App:
         return self._images
 
     def __getattr__(self, name: str) -> Any:
-        raise AttributeError
+        try:        
+            return self.__getattribute__(name)
+        except AttributeError:
+            errors.error(
+                self.root,
+                "Attribute error",
+                "There was a problem obtaining an app value.",
+                f"Attribute {name} of class {self.__class__.__name__} "
+                + "does not exist."
+            )
 
     def __delattr__(self, name: str) -> None:
-        if name in [
-            "parser",
-            "app_name",
-            "width",
-            "height",
-            "coords",
-            "x_coord",
-            "y_coord"
-        ]:
-            raise AttributeError(f"'{name}' cannot be deleted.")
-        
-        super().__delattr__(name)
+        try:
+            if not hasattr(self, name):
+                return
+            
+            attr = self.__dict__.get(name)
+            if attr.__dict__["protected"]:
+                errors.warn(
+                    None,
+                    "Attribute Error",
+                    f"Attribute {name} of class {self.__class__.__name__} "
+                    + "is protected and cannot be deleted. Please remove "
+                    + "the 'protected' flag first."
+                )
+        finally:
+            super().__delattr__(name)
 
 
 

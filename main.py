@@ -1,16 +1,20 @@
 from __future__ import annotations
 import argparse
+import asyncio
 import ctypes
 import json
 import os
-from PIL import Image, ImageTk
+import shutil
+from PIL import Image, ImageTk #type: ignore - This is needed on Linux, but not Win32
 import subprocess
 import threading
 from typing import Any, Callable
 import sys
 
 import customtkinter as ctk #type: ignore
+import pyperclip #type: ignore
 
+import errors
 import files
 from files import Path
 import gui
@@ -192,9 +196,16 @@ def get_files_elevated_permissions(app: gui.App) -> None:
         )
         app.main_section.warning_lbl.pack(fill=ctk.X, side=ctk.TOP)
 
+        errors.warn(
+            app.root,
+            "Permission Error",
+            "This directory requires elevated permissions."
+        )
+
 
 def populate_files(app: gui.App, refresh: bool = False) -> None:   
     app.main_section.scroll_to_top()
+
     file_path: Path = app.file_path
 
     for widget in app.main_section.widgets[:]:
@@ -251,6 +262,116 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
         app.main_section.file.pack(fill=ctk.X, padx=5)
 
 
+def delete_item(app: gui.App, item: Path | None = None, no_confirm: bool = False) -> None:
+    path: Path
+
+    if not item:
+        selected: Any | None = app.extra_details.get("selected")
+
+        if not selected:
+            return
+        
+        path = Path(selected.cget("text"))
+        
+        app.main_section.remove_widget(selected)
+
+    path = item or path
+
+    delete: bool = True
+
+    if not no_confirm:
+        delete = errors.confirm(app, "Delete", f"Do you want to delete {repr(path)}?")
+
+    if not delete:
+        populate_files(app)
+        return
+    
+    if path.valid_dir() or files.get_file_type(path) == "Folder":
+        errors.info(
+            None,
+            "Execution",
+            "In 'folder' if statement"
+        )
+        try:
+            shutil.rmtree((item or (app.file_path + path)).path)
+            
+            for item in app.details_bar.widgets:
+                app.details_bar.remove_widget(item)
+        except PermissionError:
+            errors.warn(
+                app,
+                "Permission Error",
+                f"{repr(path)} could not be deleted."
+            )
+            return
+        
+        try:
+            app.extra_details["directories"][app.file_path]["folders"].remove(path)
+        except: pass
+        
+        return
+
+    try:
+        os.remove(item or ((app.file_path + path).path))
+    except PermissionError:
+        errors.warn(
+            app,
+            "Permission Error",
+            f"{repr(path)} could not be deleted."
+        )
+    try:
+        app.extra_details["directories"][app.file_path]["files"].remove(path)
+    except:
+        pass
+    for item in app.details_bar.widgets:
+        app.details_bar.remove_widget(item)
+
+
+def rename_item(app: gui.App) -> None:
+    def execute_rename() -> None:
+        new_path: Path = Path(app.main_section.renamed_file.get())
+        new_full_path: Path = app.file_path + new_path
+
+        overwrite: bool = False
+
+        if os.path.exists(new_full_path):
+            overwrite = errors.confirm(
+                app.root,
+                "Rename?",
+                f"{repr(new_path)} already exists. Do you want to overwrite it?"
+            )
+
+        if os.path.exists(new_full_path) and overwrite:
+            delete_item(app, new_full_path)
+
+        try:
+            os.rename(full_path, new_full_path)
+        except OSError:
+            populate_files(app)
+
+        populate_files(app, refresh=True)
+
+
+    app_path: Path = app.file_path
+    selected_widget: Any | None = app.extra_details.get("selected")
+    if not selected_widget:
+        return
+    
+    selected_position = selected_widget.pack_info()
+    
+    item_path: Path = Path(selected_widget.cget("text"))
+    full_path: Path = app_path + item_path
+
+
+
+    app.main_section.remove_widget(selected_widget)
+    app.main_section.add_widget("renamed_file", ctk.CTkEntry)
+    app.main_section.renamed_file.pack(**selected_position)
+    app.main_section.renamed_file.focus_set()
+    app.main_section.renamed_file.bind("<FocusOut>", lambda x: execute_rename())
+    app.main_section.renamed_file.bind("<Return>", lambda x: execute_rename())
+    
+
 def back_directory(app: gui.App) -> None:
     file_path: list[str] = app.file_path.as_list()
 
@@ -272,17 +393,169 @@ def back_directory(app: gui.App) -> None:
     populate_files(app)
 
 
-def display_settings(event: gui.tk.Event[Any]) -> None:
-    raise NotImplementedError
+def display_settings(app: gui.App, event: gui.tk.Event[Any]) -> None:
+    def save_settings() -> None:
+        color_mode: str = color_mode_toggle.get().lower()
+        start_directory: str = str(start_directory_input.get())
+        start_directory_path: Path = Path(start_directory)
+
+        if (
+            start_directory
+            and start_directory_path.valid_dir()
+        ):
+            app.extra_details["settings"].start_directory = start_directory_path
+
+        if color_mode != app.extra_details["settings"].color_mode:
+            app.extra_details["settings"].color_mode = color_mode
+            ctk.set_appearance_mode(color_mode)
+
+        app.extra_details["settings"].save_settings(
+            app.root_dir
+            + Path("Settings")
+            + Path("userSettings.json")
+        )
+
+        settings_window.destroy()
 
 
-def new_file(event: gui.tk.Event[Any]) -> None:
-    raise NotImplementedError
+    settings_window: ctk.CTkToplevel = ctk.CTkToplevel(
+        master=app.root,
+        takefocus=True
+    )
+
+    settings_label: ctk.CTkLabel = ctk.CTkLabel(
+        master=settings_window,
+        text="Edit Settings Configuration"
+    )
+
+    save_button: ctk.CTkButton = ctk.CTkButton(
+        master=settings_window,
+        text="Save",
+        command=save_settings
+    )
+
+    empty_item: ctk.CTkLabel = ctk.CTkLabel(master=settings_label, text="")
+
+    color_mode_label: ctk.CTkLabel = ctk.CTkLabel(
+        master=settings_window, 
+        text="Color Mode"
+    )
+
+    color_mode_toggle: ctk.CTkComboBox = ctk.CTkComboBox(
+        master=settings_window,
+        values=["Light", "Dark", "System"]
+    )
+    color_mode_toggle.set(app.extra_details["settings"].color_mode.title())
+
+    start_directory_label: ctk.CTkLabel = ctk.CTkLabel(
+        master=settings_window,
+        text="Start Directory"
+    )
+    start_directory_input: ctk.CTkEntry = ctk.CTkEntry(
+        master=settings_window,
+        placeholder_text=app.extra_details["settings"].start_directory
+    )
 
 
-def open_share_menu(file_path: str) -> None:
-    # Use the Windows explorer.exe shell to show the sharing UI
-    subprocess.run(["explorer", "/select,", file_path], shell=True)
+    settings_label.grid(row=0, column=0, columnspan=4)
+    save_button.grid(row=0, column=5)
+    empty_item.grid(row=1, column=0, rowspan=2)
+    color_mode_label.grid(row=3, column=0)
+    color_mode_toggle.grid(row=3, column=1)
+    start_directory_label.grid(row=4, column=0)
+    start_directory_input.grid(row=4, column=1)
+
+
+def new_file(app: gui.App, event: gui.tk.Event[Any]) -> None:
+    def generate_new_file(event: gui.tk.Event[Any]) -> None:
+        file_name: str = app.main_section.new_file.get()
+        file_path: Path = Path(file_name)
+
+        if files.get_file_type(file_path) == "Folder":
+            os.mkdir(app.file_path + file_path)
+
+        else:
+            with open(app.file_path + file_path, "x") as f: f.close()
+
+        app.main_section.remove_widget(app.main_section.new_file)
+        app.root.bind("<BackSpace>", lambda x: back_directory(app))
+        populate_files(app, refresh=True)
+
+    app.main_section.scroll_to_top()
+
+
+    app.main_section.add_widget("new_file", ctk.CTkEntry, placeholder_text="Input file name...")
+    top_item = app.main_section.widgets[2]
+    try:
+        app.main_section.new_file.pack(side="top", before=top_item, fill="x")
+    except:
+        app.main_section.new_file.pack(side="top", fill="x")
+
+    app.main_section.new_file.focus_set()
+
+    app.main_section.new_file.bind("<FocusOut>", generate_new_file)
+    app.main_section.new_file.bind("<Return>", generate_new_file)
+    app.root.unbind("<BackSpace>")
+
+
+def copy(app: gui.App, cut: bool = False) -> None:
+    errors.info(
+        None,
+        "Execution",
+        "copy() started"
+    )
+    app_path: Path = app.file_path
+
+    selected: Any | None = app.extra_details.get("selected")
+    if not selected:
+        return
+    
+    selected_path: Path = Path(selected.cget("text"))
+    full_path: Path = app_path + selected_path
+
+    pyperclip.copy(str(full_path))
+
+    app.extra_details["cut"] = cut
+
+
+def paste(app: gui.App) -> None:
+    errors.info(
+        None,
+        "Execution",
+        "paste() started"
+    )
+    app_path: Path = app.file_path
+
+    recent_copy: Path = Path(pyperclip.paste())
+    cut: bool = app.extra_details.get("cut", False)
+
+    if not (recent_copy.valid_dir() or recent_copy.valid_file()):
+        return
+    
+    directory: Path
+    file_ending: Path
+
+    path_as_list: list[str] = recent_copy.as_list()
+    directory = Path(path_as_list[:-1])
+    file_ending = Path(path_as_list[-1])
+
+    if recent_copy.valid_file():
+        shutil.copy(recent_copy, app_path+file_ending)
+    else:
+        shutil.copytree(recent_copy, app_path+file_ending)
+
+    populate_files(app, refresh=True)
+
+    if cut:
+        delete_item(app, recent_copy, no_confirm=True)
+    
+    if cut and recent_copy.valid_file():
+        app.extra_details["directories"][str(directory)]["files"].remove(str(file_ending))
+        return
+
+    if cut and recent_copy.valid_dir():
+        app.extra_details["directories"][str(directory)]["folders"].remove(str(file_ending))
+        return
 
 
 def _update_details_bar(
@@ -319,7 +592,8 @@ def _update_details_bar(
         app.details_bar.detail_val.pack(side=ctk.TOP, fill=ctk.BOTH)
 
 
-def main() -> None:
+async def main() -> None:
+    """The main method for Elysium."""
     parser: argparse.Namespace = setup_parser(sys.argv[1:], "Elysium 1.2.2")
 
     app: gui.App = setup_app(parser)
@@ -336,6 +610,8 @@ def main() -> None:
 
     ctk.set_default_color_theme(str(user_settings.color_theme))
     ctk.set_appearance_mode(user_settings.color_mode)
+
+    app.extra_details["settings"] = user_settings
 
 
     if utils.platform() != "windows":
@@ -438,7 +714,7 @@ def main() -> None:
     app.title_bar.add_button(gui.Button(
         "settings_btn",
         app.title_bar,
-        single_click=lambda button, event: display_settings(event),
+        single_click=lambda button, event: display_settings(app, event),
         color="transparent",
         image=app.images["settings"],
         text="",
@@ -449,7 +725,7 @@ def main() -> None:
     app.title_bar.add_button(gui.Button(
         "new_file_btn",
         app.title_bar,
-        single_click=lambda button, event: new_file(event),
+        single_click=lambda button, event: new_file(app, event),
         color="transparent",
         image=app.images["new_file"],
         text="",
@@ -495,7 +771,13 @@ def main() -> None:
 
     app.root.bind("<BackSpace>", lambda x: back_directory(app))
     app.root.bind("<Control-r>", lambda x: populate_files(app, refresh=True))
-    
+    app.root.bind("<F5>", lambda x: populate_files(app, refresh=True))
+    app.root.bind("<Delete>", lambda event: delete_item(app))
+    app.root.bind("<F2>", lambda event: rename_item(app))
+    app.root.bind("<Control-c>", lambda event: copy(app))
+    app.root.bind("<Control-x>", lambda event: copy(app, cut=True))
+    app.root.bind("<Control-v>", lambda event: paste(app))
+
     populate_files(app)
 
     app.run()
@@ -504,4 +786,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
