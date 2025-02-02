@@ -1,8 +1,10 @@
 from copy import deepcopy
 from datetime import datetime
 import sys
-import customtkinter as ctk
-from CTkMessagebox import CTkMessagebox
+from typing import NoReturn
+import customtkinter as ctk #type: ignore
+from CTkMessagebox import CTkMessagebox #type: ignore
+import gui #type: ignore
 
 
 class Colors:
@@ -45,16 +47,55 @@ def rgb(
     return color.format(style=color_style, r=red, g=green, b=blue)
 
 
-def warn(
-    root: ctk.CTk | None,
+def confirm(
+    root: gui.App | None,
     title: str = "",
-    message: str = ""
-) -> None:
+    message: str = "",
+    options: tuple[str, str] = ("yes", "no")
+) -> bool:
+    title = title.replace('\n', ' ')
+    message = message.replace('\n', ' ')
+
+
+    if not root:
+        print(f"CONFIRM: {title} - {message}")
+        print(f"{options[0].title()} | {options[1].title()}")
+        while (item := input('>> ').lower()) not in options:
+            print("That is not a valid option!")
+            print(f"CONFIRM: {title} - {message}")
+            print(f"{options[0].title()} | {options[1].title()}")
+        
+        return item == options[0].lower()
+    
+
+    msg = CTkMessagebox(
+        master=root.root,
+        title=f"CONFIRM - {title}",
+        message=message,
+        icon="question",
+        option_1=options[0],
+        option_2=options[1]
+    )
+
+    return msg.get() == options[0] #type: ignore
+
+
+def warn(
+    root: gui.App | None,
+    title: str = "",
+    message: str = "",
+    log_message: str = ""
+) -> None | NoReturn:
+    if "warn" not in log_values:
+        return
+
+    
     current_date: str = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
     title = title.replace('\n', ' ')
     message = message.replace('\n', ' ')
 
-    log_message: str = f"{current_date} WARN {title} - {message}"
+    
+    log_message = f"{current_date} WARN {title} - {log_message or message}"
 
 
     try:
@@ -80,30 +121,80 @@ def warn(
     
 
     msg = CTkMessagebox(
-        master=root,
+        master=root.root,
         title=f"Warning - {title}",
         message=message,
         icon="warning",
         option_1="Continue",
-        option_2="Cancel"
+        option_2="Quit App"
     )
 
-    if msg.get() == "Cancel":
+    if msg.get() == "Quit App":
         sys.exit(1)
 
 
 
 
 def error(
-    root: ctk.CTk | None,
+    root: gui.App | None,
     title: str = "",
-    message: str = ""
-) -> None:
+    message: str = "",
+    log_message: str = ""
+) -> NoReturn:
+    if "error" not in log_values:
+        sys.exit()
+
+
     current_date: str = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
     title = title.replace('\n', ' ')
     message = message.replace('\n', ' ')
 
-    log_message: str = f"{current_date} ERROR {title} - {message}"
+    log_message = f"{current_date} ERROR {title} - {log_message or message}"
+
+    try:
+        with open(log_file, 'a') as f:
+            print(log_message, file=f)
+        print(
+            log_colors.error
+            + log_message
+            + __reset_color__
+        )
+    except NameError:
+        with open(__log_file__, 'a') as f:
+            print(log_message, file=f)
+        
+        print(
+            log_message
+            + __reset_color__
+        )
+
+    if root:
+        CTkMessagebox(
+            master=root.root,
+            title=f"ERROR: {title}",
+            message=message,
+            icon="cancel",
+            option_1="OK"
+        )
+    
+    sys.exit(1)
+
+
+def info(
+    root: gui.App | None,
+    title: str = "",
+    message: str = "",
+    log_message: str = ""
+) -> None:
+    if "info" not in log_values:
+        return
+
+
+    current_date: str = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
+    title = title.replace('\n', ' ')
+    message = message.replace('\n', ' ')
+
+    log_message = f"{current_date} INFO {title} - {log_message or message}"
 
     try:
         with open(log_file, 'a') as f:
@@ -125,11 +216,101 @@ def error(
 
     if root:
         CTkMessagebox(
-            master=root,
-            title=f"Error: {title}",
+            master=root.root,
+            title=f"INFO: {title}",
+            message=message,
+            icon="info",
+            option_1="OK"
+        )
+    
+
+
+def critical(
+    root: gui.App | None,
+    title: str = "",
+    message: str = "",
+    log_message: str = ""
+) -> NoReturn:
+    if "critical" not in log_values:
+        sys.exit()
+
+
+    current_date: str = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
+    title = title.replace('\n', ' ')
+    message = message.replace('\n', ' ')
+
+    log_message = f"{current_date} CRITICAL {title} - {log_message or message}"
+
+    try:
+        with open(log_file, 'a') as f:
+            print(log_message, file=f)
+        
+        print(
+            log_colors.error
+            + log_message
+            + __reset_color__
+        )
+    except NameError:
+        with open(__log_file__, 'a') as f:
+            print(log_message, file=f)
+        
+        print(
+            log_message
+            + __reset_color__
+        )
+
+    if root:
+        CTkMessagebox(
+            master=root.root,
+            title=f"CRITICAL: {title}",
             message=message,
             icon="cancel",
-            option_1="OK"
+            option_1="Quit App"
+        )
+    
+    sys.exit(1)
+
+
+def emergency(
+    root: gui.App | None,
+    title: str = "",
+    message: str = "",
+    log_message: str = ""
+) -> NoReturn:
+    if "emergency" not in log_values:
+        sys.exit()
+    
+    current_date: str = datetime.now().strftime("%d-%m-%Y %H:%M:%S.%f")
+    title = title.replace('\n', ' ')
+    message = message.replace('\n', ' ')
+
+    log_message = f"{current_date} EMERGENCY {title} - {log_message or message}"
+
+    try:
+        with open(log_file, 'a') as f:
+            print(log_message, file=f)
+        
+        print(
+            log_colors.error
+            + log_message
+            + __reset_color__
+        )
+    except NameError:
+        with open(__log_file__, 'a') as f:
+            print(log_message, file=f)
+        
+        print(
+            log_message
+            + __reset_color__
+        )
+
+    if root:
+        CTkMessagebox(
+            master=root.root,
+            title=f"EMERGENCY: {title}",
+            message=message,
+            icon="cancel",
+            option_1="Quit APP"
         )
     
     sys.exit(1)
@@ -148,3 +329,4 @@ __log_colors__: Colors = Colors(
 
 log_colors: Colors = deepcopy(__log_colors__)
 log_file: str = __log_file__
+log_values: tuple[str, ...] = ("emergency", "critical, error")

@@ -1,11 +1,13 @@
 from __future__ import annotations
 from datetime import datetime
 from functools import cache
+import json
 import os
 import re
 from typing import Any, Union
 import psutil
 
+import errors
 from utils import platform
 
 if platform() == "windows":
@@ -30,8 +32,14 @@ class Path:
             while '' in path:
                 path.remove('')
             path = self._separator.join(path)
+
+            if path.startswith(self.separator+self.separator):
+                path = path[1:]
         
         self._path: str = path
+
+    def to_dict(self) -> dict[str, str]:
+        return {"path": self.path}
     
     def as_list(self) -> list[str]:
         list_version: list[str] = [
@@ -40,6 +48,9 @@ class Path:
         ]
         while '' in list_version:
             list_version.remove('')
+
+        if self.path.startswith(self.separator):
+            list_version.insert(0, self.separator)
         return list_version
     
     def startswith(self, other: Path | str) -> bool:
@@ -106,9 +117,12 @@ class Path:
         if isinstance(other, str):
             return self.path == other
         
-        raise TypeError(
+        errors.warn(
+            None,
+            "Type Error",
             "Can only check equality of Path object with a string or a Path"
         )
+        return False
     
     def __ne__(self, other: object) -> bool:
         if isinstance(other, Path):
@@ -116,9 +130,12 @@ class Path:
         if isinstance(other, str):
             return self.path != other
         
-        raise TypeError(
+        errors.warn(
+            None,
+            "Type Error",
             "Can only check inequality of Path object with a string or a Path"
         )
+        return False
 
     def __repr__(self) -> str:
         return repr(self._path)
@@ -152,11 +169,21 @@ class Path:
         return self.path.lower() >= other.path.lower()
 
     def __fspath__(self) -> str:
-        return self.path
+        return str(self.path)
     
     def __hash__(self) -> int:
         return hash(self.path)
 
+
+class PathEncoder(json.JSONEncoder):
+    def default(self, o: Any) -> Any:
+        if isinstance(o, Path):
+            return o.to_dict()
+        elif isinstance(o, dict):
+            # Recursively handle dict keys and values
+            return {str(k) if isinstance(k, Path) else k: v for k, v in o.items()}
+        
+        return super().default(o)
 
 
 def get_drives() -> list[Path]:
@@ -181,8 +208,11 @@ def get_folders(directory: Path) -> list[Path]:
         return get_drives()
     
     if not directory.valid_dir():
-        raise FileNotFoundError(
+        errors.warn(
+            None,
+            "File Not Found",
             f"{repr(directory)} is not a valid directory.")
+        return []
     
     folders: list[Path] = []
     for item in directory.list_items():
@@ -206,10 +236,14 @@ def get_files_folders(file_path: Path) -> tuple[list[Path], list[Path]]:
             is in the format (FILES, FOLDERS).
     """
     if not file_path.valid_dir():
-        raise NotADirectoryError(
+        errors.error(
+            None,
+            "Not a directory",
             "File path expects a directory. "
             + f"{repr(file_path)} is not a directory."
         )
+
+
     items: tuple[Path, ...] = file_path.list_items()
 
     files: list[Path] = []
@@ -296,7 +330,11 @@ def fix_path(path: Path) -> Path:
 
 
     if not path.valid_dir():
-        raise NotADirectoryError(f"fix_path expects a directory! {repr(path)} does not match!")
+        errors.error(
+            None,
+            "Not a directory",
+            f"fix_path expects a directory! {repr(path)} does not match!"
+        )
 
     if is_windows and not path.endswith('\\') and path != '':
         path += Path('\\')
@@ -350,6 +388,7 @@ def _get_unix_owner(file_stats: os.stat_result) -> str:
 def get_file_type(file_path: Path) -> str:
     extension: str
     _, extension = os.path.splitext(file_path)
-    if os.path.isdir(file_path): extension = "Folder"
+
+    if not extension: extension = "Folder"
 
     return extension

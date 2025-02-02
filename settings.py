@@ -1,6 +1,8 @@
+import json
 import os
 from typing import Any, cast
 
+import errors
 from files import fix_path, Path
 
 
@@ -83,7 +85,9 @@ class AI_Rules:
             self._global_folders.append(path)
 
         if error:
-            raise FileNotFoundError(
+            errors.warn(
+                None,
+                "Invalid item",
                 "One or more values given were not found, "
                 + "or were not directories."
             )
@@ -137,6 +141,18 @@ class Settings:
 
         self.local_ai_rules.file_extensions.parse_dict(local_file_rules)
 
+    def save_settings(self, file_path: str | Path) -> None:
+        with open(file_path, "r") as f:
+            old_settings: dict[str, Any] = json.load(f)
+
+        old_settings["colorMode"] = self.color_mode
+        old_settings["colorTheme"] = self.color_theme.path
+        old_settings["startDirectory"] = self.start_directory.path
+        old_settings["recentFiles"] = [x.path for x in self.recent_files]
+
+        with open(file_path, 'w') as f:
+            json.dump(old_settings, f)
+
     @property
     def color_mode(self) -> str:
         return self._color_mode
@@ -144,7 +160,14 @@ class Settings:
     @color_mode.setter
     def color_mode(self, value: str) -> None:
         if not value.strip().lower() in ("light", "dark", "system"):
-            raise ValueError("Color mode must be either 'light', 'dark', or 'system'.")
+            errors.warn(
+                None,
+                "Value Error",
+                "Color mode must be either 'light', 'dark', or 'system'."
+            )
+            self._color_mode = "system"
+            return
+
         self._color_mode = value.strip().lower()
 
     @property
@@ -157,7 +180,12 @@ class Settings:
             value = Path(value)
 
         if not value.valid_file():
-            raise FileNotFoundError(f"{repr(value)} does not exist, and could not be found")
+            errors.warn(
+                None,
+                "File Not Found",
+                f"{repr(value)} does not exist, and could not be found"
+            )
+            return
 
         self._color_theme = value
 
@@ -171,10 +199,13 @@ class Settings:
             value = Path(value)
 
         if not value.valid_dir():
-            raise NotADirectoryError(
+            errors.warn(
+                None,
+                "Not A Directory error",
                 "start_directory expects a directory! "
-                f"{repr(value)} does not match!"
+                + f"{repr(value)} does not match!"
             )
+            return
 
         self._start_directory = fix_path(value)
 
@@ -195,7 +226,9 @@ class Settings:
                 error = True
 
         if error:
-            raise FileNotFoundError(
+            errors.warn(
+                None,
+                "File not found",
                 "One or more values given were not found, "
                 + "or were not files."
             )
