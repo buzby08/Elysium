@@ -4,6 +4,7 @@ from functools import cache
 import json
 import os
 import re
+import sys
 from typing import Any, Union
 import psutil
 
@@ -14,7 +15,6 @@ if platform() == "windows":
     import win32security
 else:
     import pwd
-
 
 
 class Path:
@@ -90,7 +90,7 @@ class Path:
     
     @property
     def path(self) -> str:
-        return self._path
+        return resource_path(self._path)
     
     @path.setter
     def path(self, value: str | list[str]) -> None:
@@ -99,6 +99,10 @@ class Path:
         
         self._path = value
     
+    @property
+    def exact_path(self) -> str:
+        return self._path
+
     def __str__(self) -> str:
         return str(self.path)
     
@@ -132,6 +136,9 @@ class Path:
         return repr(self._path)
     
     def __add__(self, other: Path | str) -> Path:
+        if isinstance(other, Path):
+            other = other.exact_path
+
         other_path: str = str(other)
         
         return Path([self.path, other_path])
@@ -316,7 +323,7 @@ def fix_path(path: Path) -> Path:
     if is_windows:
         path = Path(re.sub(r"(?<=:)(?!\\)", r"\\", str(path)))
         
-    elif not path.startswith('/') and str(path) not in ['', '/']:
+    elif not path.startswith('/') and str(path) not in ['', '/'] and not path.startswith("./"):
         path = Path('/') + path
 
 
@@ -373,6 +380,14 @@ def _get_unix_owner(file_stats: os.stat_result) -> str:
             return pwd.getpwuid(file_stats.st_uid).pw_name #type: ignore
         except KeyError:
             return "Unknown Owner"
+
+
+def resource_path(relative_path: str) -> str:
+    """Get the absolute path to resource, works for dev and PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        # PyInstaller extracts to a temp dir and stores path in _MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
 
 
 @cache

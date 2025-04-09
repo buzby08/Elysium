@@ -106,7 +106,7 @@ class Settings:
         self.__name__: str = "Settings"
 
         self._color_mode: str = "dark"
-        self._color_theme: Path = Path("Themes") + Path("widgetTheme.json")
+        self._color_theme: Path = Path(".Themes") + Path("widgetTheme.json")
         self._start_directory: Path = Path()
         self._recent_files: list[Path] = []
         self.file_association: File_Association = File_Association()
@@ -135,6 +135,8 @@ class Settings:
         self.global_ai_rules.file_extensions.parse_dict(global_file_extensions)
 
         self.local_ai_rules.file_extensions.parse_dict(local_file_rules)
+
+        errors.info(None, "", "Parsed successfully")
 
     def save_settings(self, file_path: str | Path) -> None:
         with open(file_path, "r") as f:
@@ -174,11 +176,14 @@ class Settings:
         if isinstance(value, str) or isinstance(value, list):
             value = Path(value)
             
-        if not value.valid_file():
+        if not value.valid_file() and not value.startswith("_internal"):
+            self.color_theme = Path("_internal") + value
+        
+        elif not value.valid_file():
             errors.warn(
                 None,
                 "File Not Found",
-                f"{repr(value)} does not exist, and could not be found"
+                f"{repr(value)} does not1 exist, and could not be found"
             )
             return
 

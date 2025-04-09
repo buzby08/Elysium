@@ -236,7 +236,7 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
             app.main_section,
             single_click=lambda button, x, folder=folder: display_details(button, app),
             double_click=lambda button, x, folder=folder: open_folder(button, app),
-            text=folder,
+            text=folder.exact_path,
             border_width=1,
             border_color="gray",
             image=app.images["folder"],
@@ -252,7 +252,7 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
             app.main_section,
             single_click=lambda button, x, file=file: display_details(button, app),
             double_click=lambda button, x, file=file: open_file(button, app),
-            text=file,
+            text=file.exact_path,
             border_width=1,
             border_color="gray",
             image=app.images["file"],
@@ -513,7 +513,19 @@ def copy(app: gui.App, cut: bool = False) -> None:
     selected_path: Path = Path(selected.cget("text"))
     full_path: Path = app_path + selected_path
 
-    pyperclip.copy(str(full_path))
+    try:
+        pyperclip.copy(str(full_path))
+    except pyperclip.PyperclipException:
+        errors.warn(
+            root=app,
+            title="Missing copy paste mechanism",
+            message=(
+                "Your system is missing a required module. If your are "
+                + "on Linux, please run 'sudo apt-get install xclip' or "
+                + "'sudo apt-get install xselect'. If on Windows or MacOS, "
+                + "please contact support."
+            )
+        )
 
     app.extra_details["cut"] = cut
 
@@ -526,7 +538,20 @@ def paste(app: gui.App) -> None:
     )
     app_path: Path = app.file_path
 
-    recent_copy: Path = Path(pyperclip.paste())
+    try:
+        recent_copy: Path = Path(pyperclip.paste())
+    except pyperclip.PyperclipException:
+        errors.warn(
+            root=app,
+            title="Missing copy paste mechanism",
+            message=(
+                "Your system is missing a required module. If your are "
+                + "on Linux, please run 'sudo apt-get install xclip' or "
+                + "'sudo apt-get install xselect'. If on Windows or MacOS, "
+                + "please contact support."
+            )
+        )
+
     cut: bool = app.extra_details.get("cut", False)
 
     if not (recent_copy.valid_dir() or recent_copy.valid_file()):
@@ -608,6 +633,7 @@ async def main() -> None:
 
     app.file_path = user_settings.start_directory
 
+    errors.info(None, title="VARS", message=f"{user_settings.color_theme=}")
     ctk.set_default_color_theme(str(user_settings.color_theme))
     ctk.set_appearance_mode(user_settings.color_mode)
 

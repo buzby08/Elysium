@@ -9,6 +9,7 @@ import customtkinter as ctk #type: ignore
 import errors
 from files import Path
 import files
+import utils
 
 
 
@@ -94,6 +95,9 @@ class ScrollableFrame(ctk.CTkScrollableFrame):
         self.__name__: str = widget_name
         super().__init__(**kwargs) #type: ignore
 
+        self.bind("<Enter>", self._bind_scroll)
+        self.bind("<Leave>", self._unbind_scroll)
+
     def add_frame(
         self,
         frame: 'Frame'
@@ -149,6 +153,29 @@ class ScrollableFrame(ctk.CTkScrollableFrame):
         Scrolls the frame to the top of the content.
         """
         self._parent_canvas.yview_moveto(0)
+
+    def _on_mousewheel(self, event: tk.Event[Any]) -> None:
+        self._parent_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+    def _on_linux_scroll(self, event: tk.Event[Any]) -> None:
+        if event.num == 4:
+            self._parent_canvas.yview_scroll(-1, "units")
+        elif event.num == 5:
+            self._parent_canvas.yview_scroll(1, "units")
+
+    def _bind_scroll(self, _: tk.Event[Any]) -> None:
+        if utils.platform() == "linux":
+            self.bind_all("<Button-4>", self._on_linux_scroll)
+            self.bind_all("<Button-5>", self._on_linux_scroll)
+        else:
+            self.bind_all("<MouseWheel>", self._on_mousewheel)
+
+    def _unbind_scroll(self, _: tk.Event[Any]) -> None:
+        if utils.platform() == "linux":
+            self.unbind_all("<Button-4>")
+            self.unbind_all("<Button-5>")
+        else:
+            self.unbind_all("<MouseWheel>")
 
     @property
     def widgets(self) -> list[ctk.CTkBaseClass]:
