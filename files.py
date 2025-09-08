@@ -70,14 +70,15 @@ class Path:
         
         return True
     
-    def list_items(self) -> tuple[Path, ...]:
-        if self.path == '':
+    def list_items(self, use_exact: bool = False) -> tuple[Path, ...]:
+        path: str = self.exact_path if use_exact else self.path
+        if path == '':
             return tuple(get_drives())
         
         if not self.valid_dir():
             return tuple()
         
-        return tuple(Path(x) for x in os.listdir(self.path))
+        return tuple(Path(x) for x in os.listdir(path))
     
     def split(self, sep: str) -> tuple[Path, ...]:
         items: list[str] = self.path.split(sep)
@@ -90,6 +91,8 @@ class Path:
     
     @property
     def path(self) -> str:
+        if self._path == '':
+            return self.exact_path
         return resource_path(self._path)
     
     @path.setter
@@ -186,7 +189,22 @@ class PathEncoder(json.JSONEncoder):
 
 def get_drives() -> list[Path]:
     """Returns the path of all drives mounted on the current system."""
-    return [Path(x.mountpoint) for x in psutil.disk_partitions(all=True)]
+    drives: list[Path] = []
+    for partition in psutil.disk_partitions(all=False):
+        if (
+            'rw' in partition.opts 
+            and not any(
+                partition.mountpoint.startswith(prefix) 
+                for prefix in (
+                    "/sys", 
+                    "/proc", 
+                    "/dev",
+                    "/snap",
+                    "/var"
+            ))):
+            drives.append(Path(partition.mountpoint))
+
+    return drives
 
 
 def get_folders(directory: Path) -> list[Path]:
@@ -221,7 +239,7 @@ def get_folders(directory: Path) -> list[Path]:
     return folders
 
 
-def get_files_folders(file_path: Path) -> tuple[list[Path], list[Path]]:
+def get_files_folders(file_path: Path, use_exact: bool = False) -> tuple[list[Path], list[Path]]:
     """
     Gets all the files and folders in a given directory.
 
@@ -242,7 +260,7 @@ def get_files_folders(file_path: Path) -> tuple[list[Path], list[Path]]:
         )
 
 
-    items: tuple[Path, ...] = file_path.list_items()
+    items: tuple[Path, ...] = file_path.list_items(use_exact)
 
     files: list[Path] = []
     folders: list[Path] = []
@@ -328,7 +346,7 @@ def fix_path(path: Path) -> Path:
 
 
     if not path.valid_dir():
-        errors.error(
+        errors.warn(
             None,
             "Not a directory",
             f"fix_path expects a directory! {repr(path)} does not match!"

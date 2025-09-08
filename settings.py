@@ -106,7 +106,7 @@ class Settings:
         self.__name__: str = "Settings"
 
         self._color_mode: str = "dark"
-        self._color_theme: Path = Path(".Themes") + Path("widgetTheme.json")
+        self._color_theme: Path = Path("Themes") + Path("widgetTheme.json")
         self._start_directory: Path = Path()
         self._recent_files: list[Path] = []
         self.file_association: File_Association = File_Association()

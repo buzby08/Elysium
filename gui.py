@@ -1,4 +1,7 @@
 from __future__ import annotations
+from logging import root
+import os
+import sys
 import tkinter as tk
 from typing import Any, Callable
 from PIL import Image
@@ -103,6 +106,7 @@ class ScrollableFrame(ctk.CTkScrollableFrame):
         frame: 'Frame'
     ) -> None:
         self.__setattr__(frame.__name__, frame)
+        self.bind_scroll_to_children()
 
     def add_widget(
         self, 
@@ -165,17 +169,17 @@ class ScrollableFrame(ctk.CTkScrollableFrame):
 
     def _bind_scroll(self, _: tk.Event[Any]) -> None:
         if utils.platform() == "linux":
-            self.bind_all("<Button-4>", self._on_linux_scroll)
-            self.bind_all("<Button-5>", self._on_linux_scroll)
+            self.bind("<Button-4>", self._on_linux_scroll)
+            self.bind("<Button-5>", self._on_linux_scroll)
         else:
-            self.bind_all("<MouseWheel>", self._on_mousewheel)
+            self.bind("<MouseWheel>", self._on_mousewheel)
 
     def _unbind_scroll(self, _: tk.Event[Any]) -> None:
         if utils.platform() == "linux":
-            self.unbind_all("<Button-4>")
-            self.unbind_all("<Button-5>")
+            self.unbind("<Button-4>")
+            self.unbind("<Button-5>")
         else:
-            self.unbind_all("<MouseWheel>")
+            self.unbind("<MouseWheel>")
 
     @property
     def widgets(self) -> list[ctk.CTkBaseClass]:
@@ -187,18 +191,33 @@ class Button(ctk.CTkButton):
     def __init__(
         self,
         widget_name: str,
-        master: ctk.CTk | ctk.CTkToplevel,
+        master: ctk.CTk | ctk.CTkBaseClass,
         single_click: Callable[[Button, tk.Event[Any]], None],
         double_click: Callable[[Button, tk.Event[Any]], None] | None = None,
         color: str | None = None,
+        bind_parent_scroll: bool = False,
+        scroll_parent: ScrollableFrame | None = None,
+        note: str = "",
         **kwargs: Any
     ) -> None:
+        self.note: str = note
         kwargs["master"] = master
         kwargs["fg_color"] = color
         super().__init__(**kwargs) #type: ignore
 
+        if scroll_parent is None and bind_parent_scroll:
+            errors.critical(
+                root=None,
+                title="Invalid argument combination",
+                message = (
+                    "Button.bind_parent_scroll requires that "
+                    "Button.scroll_parent be passed too"
+                )
+            )
+
 
         self.widget_name: str = widget_name
+        self._master: ctk.CTk | ctk.CTkBaseClass
         self._single_click_timer: str | None = None
         self._single_click_callback: Callable[[Button, tk.Event[Any]], None] = (
             single_click
@@ -209,6 +228,11 @@ class Button(ctk.CTkButton):
 
         self.bind("<Button-1>", self._single_click) #type: ignore
         self.bind("<Double-1>", self._double_click) #type: ignore
+        self.scroll_parent: ScrollableFrame | None = scroll_parent
+        
+        if bind_parent_scroll:
+            self.bind("<Enter>", self._bind_scroll) # type: ignore
+            self.bind("<Leave>", self._unbind_scroll) # type: ignore
     
 
     def _single_click(self, event: tk.Event[Any]) -> None:
@@ -230,6 +254,20 @@ class Button(ctk.CTkButton):
         
         self._double_click_callback(self, event)
 
+    def _bind_scroll(self, _: tk.Event[Any]) -> None:
+        if utils.platform() == "linux":
+            self.bind("<Button-4>", self.scroll_parent._on_linux_scroll) # type: ignore
+            self.bind("<Button-5>", self.scroll_parent._on_linux_scroll) # type: ignore
+        else:
+            self.bind("<MouseWheel>", self.scroll_parent._on_mousewheel) # type: ignore
+
+    def _unbind_scroll(self, _: tk.Event[Any]) -> None:
+        if utils.platform() == "linux":
+            self.unbind("<Button-4>")
+            self.unbind("<Button-5>")
+        else:
+            self.unbind("<MouseWheel>")
+
 
 
 class App:
@@ -246,12 +284,13 @@ class App:
         self.root.title(app_name)
 
         self._app_name: str = app_name
-        self._width: int = 800
-        self._height: int = 600
+        self._width: int = 500
+        self._height: int = 300
         self._x_coord: int = 150
         self._y_coord: int = 100
         self._fullscreen: bool = False
         self._file_path: Path = Path()
+        self._prev_file_path: Path = Path()
         self._widgets: list[
             ctk.CTkBaseClass 
             | ctk.CTkFrame 
@@ -263,12 +302,10 @@ class App:
 
         self.extra_details: dict[str, Any] = {}
 
-        self.root.geometry(
-            f"{self._width}x{self._height}+{self._x_coord}+{self._y_coord}"
-        )
-
-        self.root.bind("<F11>", lambda x: self.toggle_fullscreen())
-        self.root.bind("<Escape>", lambda x: self._exit_fullscreen())
+        self.root.bind("<F11>", lambda event: self.toggle_fullscreen())
+        self.root.bind("<Escape>", lambda event: self._exit_fullscreen())
+        self.root.bind("<Alt-F4>", lambda event: self._exit)
+        self.root.protocol("WM_DELETE_WINDOW", self._exit)
 
     def run(self) -> None:
         """Runs the app mainloop."""
@@ -351,6 +388,13 @@ class App:
 
         self._images[name] = ctk.CTkImage(light_image, dark_image, size) #type: ignore
 
+    def _exit(self) -> None:
+        self.root.destroy()
+        self.root.quit()
+        sys.exit(1)
+        print("force quitting")
+        os._exit(1)      
+
     def _exit_fullscreen(self) -> None:
         """Immediately exits fullscreen of the application."""
         self.fullscreen = False
@@ -387,7 +431,7 @@ class App:
         
         if not value.valid_dir():
             errors.error(
-                self.root,
+                self,
                 "Not a directory error",
                 "There was a problem changing the apps file path.",
                 f"file_path expects a directory! {value} does not match!"
@@ -397,6 +441,24 @@ class App:
             
         if self._display_fp_widget is not None:
             self._display_fp_widget.configure(text=value) #type: ignore
+
+    @property
+    def prev_file_path(self) -> Path:
+        return self._file_path
+    
+    @prev_file_path.setter
+    def prev_file_path(self, value: Path) -> None:
+        value = files.fix_path(value)
+        
+        if not value.valid_dir():
+            errors.error(
+                self,
+                "Not a directory error",
+                "There was a problem changing the apps file path.",
+                f"prev_file_path expects a directory! {value} does not match!"
+            )
+
+        self._prev_file_path = files.fix_path(value)
 
 
     @property
@@ -411,12 +473,13 @@ class App:
     ) -> None:
         self._width = kwargs.get("width", self._width)
         self._height = kwargs.get("height", self._height)
-        self._x_coord = kwargs.get("x", self._y_coord)
+        self._x_coord = kwargs.get("x", self._x_coord)
         self._y_coord = kwargs.get("y", self._y_coord)
 
         self.root.geometry(
             f"{self._width}x{self._height}+{self._x_coord}+{self._y_coord}"
         )
+        print(self.root.winfo_geometry())
 
     @property
     def app_name(self) -> str:

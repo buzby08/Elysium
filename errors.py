@@ -317,7 +317,7 @@ def emergency(
 
 
 __reset_color__: str = "\u001b[0m"
-__log_file__: str = "/media/busby08/CTRL-S/Elysium/elysium.LOG"
+__log_file__: str = "elysium.LOG"
 __log_colors__: Colors = Colors(
     info=rgb(173, 216, 230, background=True)+rgb(0, 51, 102),
     warn=rgb(255, 223, 186, background=True)+rgb(102, 51, 0),

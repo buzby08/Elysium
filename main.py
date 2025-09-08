@@ -12,7 +12,8 @@ from typing import Any, Callable
 import sys
 
 import customtkinter as ctk #type: ignore
-import pyperclip #type: ignore
+import pyperclip
+from screeninfo import Monitor #type: ignore
 
 import errors
 import files
@@ -69,13 +70,13 @@ efficiency without compromising flexibility.
         "-x", 
         "--xCoord", 
         help="Sets the x coordinate of the window",
-        default=200
+        default=None
     )
     parser.add_argument(
         "-y", 
         "--yCoord", 
         help="Sets the y coordinate of the window",
-        default=100
+        default=None
     )
     parser.add_argument(
         "-v",
@@ -89,20 +90,25 @@ efficiency without compromising flexibility.
 
 
 def setup_app(parser: argparse.Namespace) -> gui.App:
-    """Initialised the application"""
+    """Initialise the application"""
     app: gui.App = gui.App()
-    screen_width: int = app.root.winfo_screenwidth()
-    screen_height: int = app.root.winfo_screenheight()
 
-    width: int = parser.width or int(screen_width * 0.8)
-    height: int = parser.height or int(screen_height * 0.8)
+    primary: Monitor = utils.get_primary_monitor()
+    screen_width: int = primary.width
+    screen_height: int = primary.height
+    screen_x: int = primary.x
+    screen_y: int = primary.y
 
+    width: int = parser.width or int(screen_width * 0.5)
+    height: int = parser.height or int(screen_height * 0.5)
+    xCoord: int = parser.xCoord or int(screen_x + screen_width * 0.25)
+    yCoord: int = parser.yCoord or int(screen_y + screen_height * 0.25)
 
     app.geometry = {
         "width": width,
         "height": height,
-        "x": parser.xCoord,
-        "y": parser.yCoord
+        "x": xCoord,
+        "y": yCoord
     }
 
     return app
@@ -154,12 +160,51 @@ def display_details(button: gui.Button, app: gui.App) -> None:
     fetch_metadata(app, file_path, _update_details_bar)
 
 
+def add_folder_to_prev_files(app: gui.App, file_path: Path) -> None:
+    settings: settings.Settings = app.extra_details.get("settings", get_settings(
+        app.root_dir
+        + Path("Settings")
+        + Path("userSettings.json")
+    ))
+
+    if "previous_dirs" not in app.extra_details.keys():
+        app.extra_details["previous_dirs"] = [settings.start_directory]
+    
+    if "curr_prev_dir_index" not in app.extra_details.keys():
+        app.extra_details["curr_prev_dir_index"] = 0
+    
+    previous_dirs: list[Path] = app.extra_details["previous_dirs"]
+    curr_prev_dir_index: int = app.extra_details["curr_prev_dir_index"]
+
+    if curr_prev_dir_index >= len(previous_dirs):
+        curr_prev_dir_index = len(previous_dirs)-1
+
+    print(f"prev_dirs before adding path: {previous_dirs}, {curr_prev_dir_index=}")
+
+    previous_dirs = previous_dirs[:curr_prev_dir_index+1]
+    print(f"{previous_dirs=}")
+    previous_dirs.append(file_path)
+    curr_prev_dir_index = len(previous_dirs) - 1
+    print(f"{previous_dirs=}, {curr_prev_dir_index=}")
+
+    app.extra_details["previous_dirs"] = previous_dirs
+    app.extra_details["curr_prev_dir_index"] = curr_prev_dir_index
+
+
 def open_folder(button: gui.Button, app: gui.App) -> None:
     file_path: Path = Path(button.cget("text")) #type: ignore
     full_file_path: Path = app.file_path + file_path
-    
+
+    if not full_file_path.valid_dir():
+        errors.warn(
+            root=app,
+            title="Directory not found",
+            message=f"The directory - {full_file_path} - could not be found."
+        )
+        return
 
     app.file_path = full_file_path
+    add_folder_to_prev_files(app=app, file_path=full_file_path)
     populate_files(app)
 
 
@@ -178,7 +223,14 @@ def open_file(button: gui.Button, app: gui.App) -> None:
         subprocess.call(("open", file_path))
         return
 
-    subprocess.call(("xdg-open", file_path))
+    return_code: int = subprocess.call(("xdg-open", file_path))
+    if return_code != 0:
+        errors.warn(
+            root=app,
+            title="Unable to open file",
+            message=f"Unable to find a suitable app to open `{button_file}`",
+            log_message=f"Couldnt find suitable app for `{file_path}`"
+        )
 
 
 def get_files_elevated_permissions(app: gui.App) -> None:
@@ -203,10 +255,19 @@ def get_files_elevated_permissions(app: gui.App) -> None:
         )
 
 
-def populate_files(app: gui.App, refresh: bool = False) -> None:   
+def populate_files(app: gui.App, refresh: bool = False) -> None:
     app.main_section.scroll_to_top()
 
     file_path: Path = app.file_path
+
+    if not file_path.valid_dir():
+        app.main_section.add_widget(
+            "warning_lbl",
+            ctk.CTkLabel,
+            text="This folder does not exist.",
+            fg="red"
+        )
+        return
 
     for widget in app.main_section.widgets[:]:
         app.main_section.remove_widget(widget)
@@ -224,7 +285,7 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
         )
     
     else:
-        files_list, folders = files.get_files_folders(file_path)
+        files_list, folders = files.get_files_folders(file_path, use_exact=True)
         app.extra_details["directories"][file_path] = {}
         app.extra_details["directories"][file_path]["folders"] = folders
         app.extra_details["directories"][file_path]["files"] = files_list
@@ -236,6 +297,9 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
             app.main_section,
             single_click=lambda button, x, folder=folder: display_details(button, app),
             double_click=lambda button, x, folder=folder: open_folder(button, app),
+            bind_parent_scroll = True,
+            scroll_parent=app.main_section,
+            note="folder",
             text=folder.exact_path,
             border_width=1,
             border_color="gray",
@@ -252,6 +316,9 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
             app.main_section,
             single_click=lambda button, x, file=file: display_details(button, app),
             double_click=lambda button, x, file=file: open_file(button, app),
+            bind_parent_scroll = True,
+            scroll_parent=app.main_section,
+            note="file",
             text=file.exact_path,
             border_width=1,
             border_color="gray",
@@ -260,6 +327,8 @@ def populate_files(app: gui.App, refresh: bool = False) -> None:
             anchor="w"
         ))
         app.main_section.file.pack(fill=ctk.X, padx=5)
+
+    app.details_bar.open_btn.configure(text="Open in terminal")
 
 
 def delete_item(app: gui.App, item: Path | None = None, no_confirm: bool = False) -> None:
@@ -388,21 +457,86 @@ def back_directory(app: gui.App) -> None:
         new_fp = Path('/')
 
     app.file_path = new_fp
+    add_folder_to_prev_files(app, file_path=new_fp)
     if "selected" in app.extra_details:
         del app.extra_details["selected"]
     populate_files(app)
 
 
+def previous_directory(app: gui.App) -> None:
+    settings: settings.Settings = app.extra_details.get("settings", get_settings(
+        app.root_dir
+        + Path("Settings")
+        + Path("userSettings.json")
+    ))
+
+    if "previous_dirs" not in app.extra_details.keys():
+        app.extra_details["previous_dirs"] = [settings.start_directory]
+    
+    if "curr_prev_dir_index" not in app.extra_details.keys():
+        app.extra_details["curr_prev_dir_index"] = 0
+    
+    previous_dirs: list[Path] = app.extra_details["previous_dirs"]
+    curr_prev_dir_index: int = app.extra_details["curr_prev_dir_index"]
+
+    if len(previous_dirs) == 0:
+        previous_dirs = [settings.start_directory]
+
+    if curr_prev_dir_index >= len(previous_dirs):
+        curr_prev_dir_index = len(previous_dirs)-1
+
+    print(f"{previous_dirs=}, {curr_prev_dir_index=}")
+
+    curr_prev_dir_index -= 1
+    print(f"{curr_prev_dir_index=}")
+    
+    if curr_prev_dir_index <= 0:
+        app.file_path = previous_dirs[0]
+    else:
+        app.file_path = previous_dirs[curr_prev_dir_index]
+    
+    app.extra_details["curr_prev_dir_index"] = curr_prev_dir_index
+    populate_files(app)
+
+
+def forward_directory(app: gui.App) -> None:
+    settings: settings.Settings = app.extra_details.get("settings", get_settings(
+        app.root_dir
+        + Path("Settings")
+        + Path("userSettings.json")
+    ))
+
+    if "previous_dirs" not in app.extra_details.keys():
+        app.extra_details["previous_dirs"] = [settings.start_directory]
+    
+    if "curr_prev_dir_index" not in app.extra_details.keys():
+        app.extra_details["curr_prev_dir_index"] = 0
+    
+    previous_dirs: list[Path] = app.extra_details["previous_dirs"]
+    curr_prev_dir_index: int = app.extra_details["curr_prev_dir_index"]
+
+    if len(previous_dirs) == 0:
+        previous_dirs = [settings.start_directory]
+
+    curr_prev_dir_index += 1
+
+    if curr_prev_dir_index >= len(previous_dirs):
+        curr_prev_dir_index = len(previous_dirs)-1
+
+    app.file_path = previous_dirs[curr_prev_dir_index]
+    app.extra_details["previous_dirs"] = previous_dirs
+    app.extra_details["curr_prev_dir_index"] = curr_prev_dir_index
+
+    populate_files(app)
+
+    
 def display_settings(app: gui.App, event: gui.tk.Event[Any]) -> None:
     def save_settings() -> None:
         color_mode: str = color_mode_toggle.get().lower()
         start_directory: str = str(start_directory_input.get())
         start_directory_path: Path = Path(start_directory)
 
-        if (
-            start_directory
-            and start_directory_path.valid_dir()
-        ):
+        if start_directory_path.valid_dir():
             app.extra_details["settings"].start_directory = start_directory_path
 
         if color_mode != app.extra_details["settings"].color_mode:
@@ -452,9 +586,9 @@ def display_settings(app: gui.App, event: gui.tk.Event[Any]) -> None:
         text="Start Directory"
     )
     start_directory_input: ctk.CTkEntry = ctk.CTkEntry(
-        master=settings_window,
-        placeholder_text=app.extra_details["settings"].start_directory
+        master=settings_window
     )
+    start_directory_input.insert(0, app.extra_details["settings"].start_directory)
 
 
     settings_label.grid(row=0, column=0, columnspan=4)
@@ -464,6 +598,8 @@ def display_settings(app: gui.App, event: gui.tk.Event[Any]) -> None:
     color_mode_toggle.grid(row=3, column=1)
     start_directory_label.grid(row=4, column=0)
     start_directory_input.grid(row=4, column=1)
+
+    settings_window.bind_all("<Return>", lambda event: save_settings())
 
 
 def new_file(app: gui.App, event: gui.tk.Event[Any]) -> None:
@@ -583,6 +719,27 @@ def paste(app: gui.App) -> None:
         return
 
 
+def open_item(app: gui.App) -> None:
+    current_item_is_folder: bool = app.extra_details["selected"].note == "folder"
+    current_action_is_open: bool = app.details_bar.open_btn.cget("text") == "Open"
+    if current_action_is_open and not current_item_is_folder:
+        open_file(app.extra_details["selected"], app)
+        return
+    
+    if current_action_is_open and current_item_is_folder:
+        open_folder(app.extra_details["selected"], app)
+        return
+    
+    try:
+        utils.open_terminal(app.file_path.path)
+    except OSError:
+        errors.warn(
+            root=app,
+            title="Unsupported operation",
+            message="Your OS is not recognised for terminal support"
+        )
+
+
 def _update_details_bar(
     app: gui.App,
     metadata_dict: dict[str, str | Path | files.datetime | None]
@@ -615,6 +772,8 @@ def _update_details_bar(
         )
         app.details_bar.detail_name.pack(side=ctk.TOP, fill=ctk.BOTH)
         app.details_bar.detail_val.pack(side=ctk.TOP, fill=ctk.BOTH)
+    
+    app.details_bar.open_btn.configure(text="Open")
 
 
 async def main() -> None:
@@ -686,6 +845,7 @@ async def main() -> None:
             "folders": files.get_drives()
         }
     }
+    app.extra_details["selected"] = None
 
     app.add_frame(gui.Frame(
         "title_bar",
@@ -789,6 +949,15 @@ async def main() -> None:
     app.details_bar.separator.pack(side=ctk.TOP, fill=ctk.X, padx=10, pady=10)
     app.details_bar.block_deletion(app.details_bar.separator)
 
+    app.details_bar.add_button(gui.Button(
+        widget_name="open_btn",
+        master=app.details_bar,
+        single_click=lambda button, event: open_item(app),
+        text="Open in terminal"
+    ))
+    app.details_bar.open_btn.pack(fill=ctk.X)
+    app.details_bar.block_deletion(app.details_bar.open_btn)
+
 
     app.title_bar.pack(side=ctk.TOP, fill=ctk.X)
     app.main_section.pack(side=ctk.LEFT, fill=ctk.BOTH, expand=True)
@@ -803,6 +972,8 @@ async def main() -> None:
     app.root.bind("<Control-c>", lambda event: copy(app))
     app.root.bind("<Control-x>", lambda event: copy(app, cut=True))
     app.root.bind("<Control-v>", lambda event: paste(app))
+    app.root.bind("<Alt-Left>", lambda event: previous_directory(app))
+    app.root.bind("<Alt-Right>", lambda event: forward_directory(app))
 
     populate_files(app)
 
