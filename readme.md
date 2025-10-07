@@ -6,19 +6,9 @@ Elysium is a revolutionary organisational tool designed to streamline workflows 
 
 ### Windows
 
-`pip install pywin32`
+Run this command: `pip install pywin32 screeninfo customtkinter pyperclip CTkMessagebox psutil`
 
-`pip install screeninfo`
-
-`pip install customtkinter`
-
-`pip install pyperclip`
-
-`pip install CTkMessagebox`
-
-`pip install psutil`
-
-`python main-windows.py`
+Then run this to run the app: `python main-windows.py`
 
 ### Debian
 
