@@ -6,9 +6,19 @@ Elysium is a revolutionary organisational tool designed to streamline workflows 
 
 ### Windows
 
-`pip install -r requirements-win.txt`
+`pip install pywin32`
 
-Then run the main file
+`pip install screeninfo`
+
+`pip install customtkinter`
+
+`pip install pyperclip`
+
+`pip install CTkMessagebox`
+
+`pip install psutil`
+
+`python main-windows.py`
 
 ### Debian
 
