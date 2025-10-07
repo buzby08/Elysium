@@ -2,6 +2,20 @@
 
 Elysium is a revolutionary organisational tool designed to streamline workflows and redefine productivity. By blending modern aesthetics with powerful functionality, Elysium offers an innovative approach to file and project management, perfect for users seeking structure and efficiency without compromising flexibility.
 
+## To install
+
+### Windows
+
+`pip install -r requirements-win.txt`
+
+Then run the main file
+
+### Debian
+
+`pip install -r requirements-linux.txt`
+
+Then run the main file
+
 ## Key Features
 
 ### File and Folder Organisation
